@@ -35,9 +35,7 @@ export enum RedisMetadata {
     OutputSinkStreamKey = "redis.stream.key",
 }
 
-export enum RedisStreamID {
-    AutoGenerate = "*",
-}
+export const AutoGenerateRedisStreamID = "*";
 
 export interface IRedisClient {
     putObject<T>(
@@ -59,6 +57,12 @@ export interface IRedisClient {
         body: T,
         id?: string
     ): Promise<string>;
+    xReadObject<T>(
+        context: SpanContext,
+        type: string | IClassType<T>,
+        streamName: string,
+        id?: string
+    ): Promise<[string, T] | undefined>; // [streamId, T]
 }
 
 export function redisClient(configuration: IRedisOptions): IRedisClient {

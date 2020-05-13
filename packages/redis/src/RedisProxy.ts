@@ -12,7 +12,7 @@ import {
     ILogger,
     IRequireInitialization,
 } from "@walmartlabs/cookie-cutter-core";
-import { ClientOpts, RedisClient } from "redis";
+import { ClientOpts, RedisClient, Callback } from "redis";
 import { promisify } from "util";
 
 export enum RedisLogMessages {
@@ -30,12 +30,17 @@ export enum RedisEvents {
     Reconnecting = "reconnecting",
     End = "end",
 }
+//[[streamName, [[streamId, [key, value, key, value ...]]]]]
+export type XReadResult = [[string, [[string, string[]]]]];
 
 interface IRedisStreamOperations {
-    xadd: (key: string, id: string, ...args: string[]) => Promise<string>;
+    xadd: (key: string, id: string, ...args: string[] | Callback<string>[]) => boolean;
+    xread: (args: string[], cb: Callback<XReadResult>) => boolean;
 }
 
 export type RedisClientWithStreamOperations = RedisClient & IRedisStreamOperations;
+
+export type RedisOptionArray = [string, string];
 
 export class RedisProxy implements IRequireInitialization, IDisposable {
     private client: RedisClientWithStreamOperations;
@@ -44,6 +49,8 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
     private asyncSet: (key: string, value: string) => Promise<{}>;
     private asyncQuit: () => Promise<any>;
     private asyncXAdd: (streamName: string, id: string, ...keyValues: string[]) => Promise<string>;
+    private asyncXRead: (args: string[]) => Promise<XReadResult>;
+
     constructor(host: string, port: number, db: number) {
         this.logger = DefaultComponentContext.logger;
         const opts: ClientOpts = {
@@ -73,8 +80,9 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
             this.logger.info(RedisLogMessages.End);
         });
         this.asyncGet = promisify(this.client.get).bind(this.client);
-        this.asyncSet = promisify(this.client.set).bind(this.client) as any;
+        this.asyncSet = promisify(this.client.set).bind(this.client);
         this.asyncXAdd = promisify(this.client.xadd).bind(this.client);
+        this.asyncXRead = promisify(this.client.xread).bind(this.client);
         this.asyncQuit = promisify(this.client.quit).bind(this.client);
     }
 
@@ -103,5 +111,9 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
 
     public async xadd(streamName: string, id: string, ...args: string[]): Promise<string> {
         return this.asyncXAdd(streamName, id, ...args);
+    }
+
+    public async xread(args: string[]): Promise<XReadResult> {
+        return this.asyncXRead(args);
     }
 }
