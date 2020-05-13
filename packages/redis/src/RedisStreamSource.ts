@@ -29,7 +29,9 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
         let currentId = "$";
         while (!this.done) {
             const span = this.tracer.startSpan(this.spanOperationName);
+
             this.spanLogAndSetTags(span, this.config.db, this.config.readStream);
+
             const [streamId, msg] = await this.client.xReadObject<MessageRef>(
                 span.context(),
                 MessageRef.name,
@@ -40,6 +42,8 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
             currentId = streamId;
 
             yield msg;
+
+            span.finish();
         }
     }
 
