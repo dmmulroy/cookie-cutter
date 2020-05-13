@@ -31,6 +31,9 @@ export enum RedisEvents {
     End = "end",
 }
 
+//[[streamName, [[streamId, [key, value, key, value ...]]]]]
+export type XReadResult = [[string, [[string, string[]]]]];
+
 interface IRedisStreamOperations {
     xadd: (key: string, id: string, ...args: string[] | Callback<string>[]) => boolean;
     xread: (args: string[], cb: Callback<any>) => boolean;
