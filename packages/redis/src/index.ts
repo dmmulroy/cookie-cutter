@@ -24,7 +24,7 @@ export interface IRedisOptions {
 }
 
 export type IRedisInputStreamOptions = IRedisOptions & {
-    readStreams: string[];
+    readStream: string;
 };
 
 export type IRedisOutputStreamOptions = IRedisOptions & {

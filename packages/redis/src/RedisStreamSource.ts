@@ -19,12 +19,29 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
     private client: Lifecycle<IRedisClient>;
     private logger: ILogger;
     private tracer: Tracer;
+    private spanOperationName: string = "Redis Input Source Client Call";
 
     constructor(private readonly config: IRedisInputStreamOptions) {
         this.tracer = DefaultComponentContext.tracer;
     }
 
-    public async *start(): AsyncIterableIterator<MessageRef> {}
+    public async *start(): AsyncIterableIterator<MessageRef> {
+        let currentId = "$";
+        while (!this.done) {
+            const span = this.tracer.startSpan(this.spanOperationName);
+            this.spanLogAndSetTags(span, this.config.db, this.config.readStream);
+            const [streamId, msg] = await this.client.xReadObject<MessageRef>(
+                span.context(),
+                MessageRef.name,
+                this.config.readStream,
+                currentId
+            );
+
+            currentId = streamId;
+
+            yield msg;
+        }
+    }
 
     stop(): Promise<void> {
         throw new Error("Method not implemented.");
