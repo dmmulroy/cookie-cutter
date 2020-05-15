@@ -39,7 +39,7 @@ enum RedisOpenTracingTagKeys {
     BucketName = "redis.bucket",
 }
 
-function extractXReadValue(results: XReadResult): Uint8Array {
+function extractXReadValue(results: XReadResult): string {
     // Since our initial implementation on pulls 1 value from 1 stream at a time
     // there should only 1 item in results
 
@@ -52,10 +52,10 @@ function extractXReadValue(results: XReadResult): Uint8Array {
     // [RedisMetadata.OutputSinkStreamKey, data]
     const [, data] = keyValues;
 
-    return new Uint8Array(Buffer.from(data, "base64"));
+    return data;
 }
 
-function extractXReadStreamID(results: XReadResult): string {
+function extractXReadStreamId(results: XReadResult): string {
     // Since our initial implementation on pulls 1 value from 1 stream at a time
     // there should only 1 item in results
 
@@ -258,10 +258,13 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
             const typeName = this.getTypeName(type);
             const response = await this.client.xread(["block", "0", "streams", streamName, id]);
             const value = extractXReadValue(response);
-            const id = extractXReadStreamID(response);
+            const streamId = extractXReadStreamId(response);
             let data;
-            if (response) {
-                const msg = this.encoder.decode(value, typeName);
+            if (value) {
+                const buf = this.config.base64Encode
+                    ? Buffer.from(value, "base64")
+                    : Buffer.from(value);
+                const msg = this.encoder.decode(new Uint8Array(buf), typeName);
                 data = msg.payload;
             }
 
@@ -270,7 +273,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
                 db,
                 result: RedisMetricResults.Success,
             });
-            return [id, data];
+            return [streamId, data];
         } catch (e) {
             failSpan(span, e);
             this.metrics.increment(RedisMetrics.XRead, {
