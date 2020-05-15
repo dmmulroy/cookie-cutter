@@ -30,15 +30,17 @@ export enum RedisEvents {
     Reconnecting = "reconnecting",
     End = "end",
 }
-//[[streamName, [[streamId, [key, value, key, value ...]]]]]
+
+// [[streamName, [[streamId, [key, value, key, value ...]]]]]
 export type XReadResult = [[string, [[string, string[]]]]];
 
-interface IRedisStreamOperations {
-    xadd: (key: string, id: string, ...args: string[] | Callback<string>[]) => boolean;
+interface IRedisCommandPatches {
+    xadd: (key: string, id: string, ...args: (string | Buffer)[] | Callback<string>[]) => boolean;
     xread: (args: string[], cb: Callback<XReadResult>) => boolean;
+    set: (key: string, value: string | Buffer, cb: Callback<"OK">) => boolean;
 }
 
-export type RedisClientWithStreamOperations = RedisClient & IRedisStreamOperations;
+export type RedisClientWithStreamOperations = RedisClient & IRedisCommandPatches;
 
 export type RedisOptionArray = [string, string];
 
@@ -46,9 +48,13 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
     private client: RedisClientWithStreamOperations;
     private logger: ILogger;
     private asyncGet: (key: string) => Promise<string>;
-    private asyncSet: (key: string, value: string) => Promise<{}>;
+    private asyncSet: (key: string, value: string | Buffer) => Promise<"OK">;
     private asyncQuit: () => Promise<any>;
-    private asyncXAdd: (streamName: string, id: string, ...keyValues: string[]) => Promise<string>;
+    private asyncXAdd: (
+        streamName: string,
+        id: string,
+        ...keyValues: (string | Buffer)[]
+    ) => Promise<string>;
     private asyncXRead: (args: string[]) => Promise<XReadResult>;
 
     constructor(host: string, port: number, db: number) {
@@ -94,22 +100,19 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
         return this.asyncQuit();
     }
 
-    public async set(key: string, value: Uint8Array) {
-        // Base 64 encoding is used due to library constraints, and time constraints.
-        // It should ultimately be updated to support direct set of byte arrays.
-        const storableValue = Buffer.from(value).toString("base64");
-        return await this.asyncSet(key, storableValue);
+    public async set(key: string, value: string | Buffer) {
+        return this.asyncSet(key, value);
     }
 
-    public async get(key: string): Promise<Uint8Array | undefined> {
-        const val = await this.asyncGet(key);
-        if (val) {
-            return new Uint8Array(Buffer.from(val, "base64"));
-        }
-        return undefined;
+    public async get(key: string): Promise<string | undefined> {
+        return this.asyncGet(key);
     }
 
-    public async xadd(streamName: string, id: string, ...args: string[]): Promise<string> {
+    public async xadd(
+        streamName: string,
+        id: string,
+        ...args: (string | Buffer)[]
+    ): Promise<string> {
         return this.asyncXAdd(streamName, id, ...args);
     }
 

@@ -23,19 +23,19 @@ import { isString } from "util";
 import { IRedisOptions, IRedisClient, AutoGenerateRedisStreamID } from ".";
 import { RedisProxy, XReadResult } from "./RedisProxy";
 
-export enum RedisMetrics {
+enum RedisMetrics {
     Get = "cookie_cutter.redis_client.get",
     Set = "cookie_cutter.redis_client.set",
     XAdd = "cookie_cutter.redis_client.xadd",
     XRead = "cookie_cutter.redis_client.xread",
 }
 
-export enum RedisMetricResults {
+enum RedisMetricResults {
     Success = "success",
     Error = "error",
 }
 
-export enum RedisOpenTracingTagKeys {
+enum RedisOpenTracingTagKeys {
     BucketName = "redis.bucket",
 }
 
@@ -134,8 +134,10 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
             payload: body,
         };
         const encodedBody = this.encoder.encode(msg);
+        const buf = Buffer.from(encodedBody);
+        const storableValue = this.config.base64Encode ? buf.toString("base64") : buf;
         try {
-            await this.client.set(key, encodedBody);
+            await this.client.set(key, storableValue);
             this.metrics.increment(RedisMetrics.Set, {
                 type,
                 db,
@@ -166,9 +168,14 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
         try {
             const typeName = this.getTypeName(type);
             const response = await this.client.get(key);
+
             let data;
+
             if (response) {
-                const msg = this.encoder.decode(response, typeName);
+                const buf = this.config.base64Encode
+                    ? Buffer.from(response, "base64")
+                    : Buffer.from(response);
+                const msg = this.encoder.decode(new Uint8Array(buf), typeName);
                 data = msg.payload;
             }
 
@@ -211,7 +218,8 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
             payload: body,
         });
 
-        const storableValue = Buffer.from(encodedBody).toString("base64");
+        const buf = Buffer.from(encodedBody);
+        const storableValue = this.config.base64Encode ? buf.toString("base64") : buf;
         try {
             const insertedId = await this.client.xadd(streamName, id, key, storableValue);
             this.metrics!.increment(RedisMetrics.XAdd, {
