@@ -20,12 +20,13 @@ import {
 } from "@walmartlabs/cookie-cutter-core";
 import { Span, SpanContext, Tags, Tracer } from "opentracing";
 import { isString } from "util";
-import { IRedisOptions } from ".";
+import { IRedisOptions, IRedisClient, RedisStreamID } from ".";
 import { RedisProxy } from "./RedisProxy";
 
 enum RedisMetrics {
     Get = "cookie_cutter.redis_client.get",
     Set = "cookie_cutter.redis_client.set",
+    XAdd = "cookie_cutter.redis_client.xadd",
 }
 
 enum RedisMetricResults {
@@ -37,7 +38,7 @@ enum RedisOpenTracingTagKeys {
     BucketName = "redis.bucket",
 }
 
-export class RedisClient implements IRequireInitialization, IDisposable {
+export class RedisClient implements IRedisClient, IRequireInitialization, IDisposable {
     private client: RedisProxy;
     private encoder: IMessageEncoder;
     private typeMapper: IMessageTypeMapper;
@@ -73,8 +74,14 @@ export class RedisClient implements IRequireInitialization, IDisposable {
         return typeName;
     }
 
-    private spanLogAndSetTags(span: Span, funcName: string, bucket: number, key: string): void {
-        span.log({ bucket, key });
+    private spanLogAndSetTags(
+        span: Span,
+        funcName: string,
+        bucket: number,
+        key: string,
+        streamName?: string
+    ): void {
+        span.log({ bucket, key, streamName });
         span.setTag(Tags.SPAN_KIND, Tags.SPAN_KIND_RPC_CLIENT);
         span.setTag(Tags.COMPONENT, "cookie-cutter-redis");
         span.setTag(Tags.DB_INSTANCE, bucket);
@@ -97,8 +104,10 @@ export class RedisClient implements IRequireInitialization, IDisposable {
             payload: body,
         };
         const encodedBody = this.encoder.encode(msg);
+        const buf = Buffer.from(encodedBody);
+        const storableValue = this.config.base64Encode ? buf.toString("base64") : buf;
         try {
-            await this.client.set(key, encodedBody);
+            await this.client.set(key, storableValue);
             this.metrics.increment(RedisMetrics.Set, {
                 type,
                 db,
@@ -129,9 +138,14 @@ export class RedisClient implements IRequireInitialization, IDisposable {
         try {
             const typeName = this.getTypeName(type);
             const response = await this.client.get(key);
+
             let data;
+
             if (response) {
-                const msg = this.encoder.decode(response, typeName);
+                const buf = this.config.base64Encode
+                    ? Buffer.from(response, "base64")
+                    : Buffer.from(response);
+                const msg = this.encoder.decode(new Uint8Array(buf), typeName);
                 data = msg.payload;
             }
 
@@ -145,6 +159,53 @@ export class RedisClient implements IRequireInitialization, IDisposable {
             failSpan(span, e);
             this.metrics.increment(RedisMetrics.Get, {
                 db,
+                result: RedisMetricResults.Error,
+                error: e,
+            });
+            throw e;
+        } finally {
+            span.finish();
+        }
+    }
+
+    public async xAddObject<T>(
+        context: SpanContext,
+        type: string | IClassType<T>,
+        streamName: string,
+        key: string,
+        body: T,
+        id: string = RedisStreamID.AutoGenerate
+    ): Promise<string> {
+        const db = this.config.db;
+        const span = this.tracer!.startSpan(this.spanOperationName, { childOf: context });
+
+        this.spanLogAndSetTags(span, this.xAddObject.name, db, key, streamName);
+
+        const typeName = this.getTypeName(type);
+
+        const encodedBody = this.encoder.encode({
+            type: typeName,
+            payload: body,
+        });
+
+        const buf = Buffer.from(encodedBody);
+        const storableValue = this.config.base64Encode ? buf.toString("base64") : buf;
+        try {
+            const insertedId = await this.client.xadd(streamName, id, key, storableValue);
+            this.metrics!.increment(RedisMetrics.XAdd, {
+                type,
+                db,
+                streamName,
+                result: RedisMetricResults.Success,
+            });
+
+            return insertedId;
+        } catch (e) {
+            failSpan(span, e);
+            this.metrics!.increment(RedisMetrics.XAdd, {
+                type,
+                db,
+                streamName,
                 result: RedisMetricResults.Error,
                 error: e,
             });
