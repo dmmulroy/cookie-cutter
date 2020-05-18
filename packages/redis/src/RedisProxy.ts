@@ -37,6 +37,8 @@ export type XReadResult = [[string, [[string, string[]]]]];
 interface IRedisCommandPatches {
     xadd: (key: string, id: string, ...args: (string | Buffer)[] | Callback<string>[]) => boolean;
     xread: (args: string[], cb: Callback<XReadResult>) => boolean;
+    xgroup: (args: string[], cb: Callback<"OK">) => boolean;
+    xinfo: (args: string[], cb: Callback<any>) => any;
     set: (key: string, value: string | Buffer, cb: Callback<"OK">) => boolean;
 }
 
@@ -56,6 +58,8 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
         ...keyValues: (string | Buffer)[]
     ) => Promise<string>;
     private asyncXRead: (args: string[]) => Promise<XReadResult>;
+    private asyncXGroup: (args: string[]) => Promise<"OK">;
+    private asyncXInfo: (args: string[]) => Promise<any>;
 
     constructor(host: string, port: number, db: number) {
         this.logger = DefaultComponentContext.logger;
@@ -89,6 +93,8 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
         this.asyncSet = promisify(this.client.set).bind(this.client);
         this.asyncXAdd = promisify(this.client.xadd).bind(this.client);
         this.asyncXRead = promisify(this.client.xread).bind(this.client);
+        this.asyncXGroup = promisify(this.client.xgroup).bind(this.client);
+        this.asyncXInfo = promisify(this.client.xinfo).bind(this.client);
         this.asyncQuit = promisify(this.client.quit).bind(this.client);
     }
 
@@ -118,5 +124,13 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
 
     public async xread(args: string[]): Promise<XReadResult> {
         return this.asyncXRead(args);
+    }
+
+    public async xgroup(args: string[]): Promise<"OK"> {
+        return this.asyncXGroup(args);
+    }
+
+    public async xinfo(args: string[]): Promise<any> {
+        return this.asyncXInfo(args);
     }
 }

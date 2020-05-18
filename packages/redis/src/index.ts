@@ -29,7 +29,8 @@ export interface IRedisOptions {
 
 export type IRedisInputStreamOptions = IRedisOptions & {
     readStream: string;
-    readGroup?: string;
+    consumerGroup?: string;
+    consumerGroupStartId?: string;
 };
 
 export type IRedisOutputStreamOptions = IRedisOptions & {

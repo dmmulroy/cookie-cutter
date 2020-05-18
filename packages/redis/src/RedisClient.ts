@@ -28,6 +28,9 @@ enum RedisMetrics {
     Set = "cookie_cutter.redis_client.set",
     XAdd = "cookie_cutter.redis_client.xadd",
     XRead = "cookie_cutter.redis_client.xread",
+    XReadGroup = "cookie_cutter.redis_client.xreadgroup",
+    XGroup = "cookie_cutter.redis_client.xgroup",
+    XAck = "cookie_cutter.redis_client.xack",
 }
 
 enum RedisMetricResults {
