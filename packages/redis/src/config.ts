@@ -66,6 +66,14 @@ export class RedisOptions implements IRedisOptions {
         return config.noop();
     }
 
+    @config.field(config.converters.string)
+    public set readGroup(_: string[]) {
+        config.noop();
+    }
+    public get readGroup(): string[] {
+        return config.noop();
+    }
+
     @config.field(config.converters.boolean)
     public set base64Encode(_: boolean) {
         config.noop();

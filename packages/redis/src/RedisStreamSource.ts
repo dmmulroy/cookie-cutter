@@ -4,7 +4,6 @@ import {
     IDisposable,
     MessageRef,
     IComponentContext,
-    ILogger,
     DefaultComponentContext,
     Lifecycle,
     makeLifecycle,
@@ -17,7 +16,6 @@ import { RedisOpenTracingTagKeys } from "./RedisClient";
 export class RedisStreamSource implements IInputSource, IRequireInitialization, IDisposable {
     private done: boolean = false;
     private client: Lifecycle<IRedisClient>;
-    private logger: ILogger;
     private tracer: Tracer;
     private spanOperationName: string = "Redis Input Source Client Call";
 
@@ -52,7 +50,6 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
     }
 
     public async initialize(context: IComponentContext): Promise<void> {
-        this.logger = context.logger;
         this.tracer = context.tracer;
 
         this.client = makeLifecycle(redisClient(this.config));
