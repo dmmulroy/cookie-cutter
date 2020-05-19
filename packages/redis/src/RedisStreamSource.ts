@@ -55,15 +55,31 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
         this.client = makeLifecycle(redisClient(this.config));
         await this.client.initialize(context);
 
-        // await this.client.xGroup()
+        const span = this.tracer.startSpan(this.spanOperationName);
+
+        this.spanLogAndSetTags(
+            span,
+            this.config.db,
+            this.config.readStream,
+            this.config.consumerGroup
+        );
+
+        await this.client.xGroup(span.context(), this.config.readStream, this.config.consumerGroup);
+
+        span.finish();
     }
 
     public async dispose(): Promise<void> {
         await this.client.dispose();
     }
 
-    private spanLogAndSetTags(span: Span, bucket: number, streamName: string): void {
-        span.log({ bucket, streamName });
+    private spanLogAndSetTags(
+        span: Span,
+        bucket: number,
+        streamName: string,
+        consumerGroup: string
+    ): void {
+        span.log({ bucket, streamName, consumerGroup });
 
         span.setTag(Tags.SPAN_KIND, Tags.SPAN_KIND_RPC_CLIENT);
         span.setTag(Tags.COMPONENT, "cookie-cutter-redis");
