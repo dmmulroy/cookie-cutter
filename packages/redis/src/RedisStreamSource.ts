@@ -28,7 +28,12 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
         while (!this.done) {
             const span = this.tracer.startSpan(this.spanOperationName);
 
-            this.spanLogAndSetTags(span, this.config.db, this.config.readStream);
+            this.spanLogAndSetTags(
+                span,
+                this.config.db,
+                this.config.readStream,
+                this.config.consumerGroup
+            );
 
             const [streamId, msg] = await this.client.xReadObject<MessageRef>(
                 span.context(),
