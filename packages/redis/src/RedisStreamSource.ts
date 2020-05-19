@@ -54,6 +54,8 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
 
         this.client = makeLifecycle(redisClient(this.config));
         await this.client.initialize(context);
+
+        // await this.client.xGroup()
     }
 
     public async dispose(): Promise<void> {

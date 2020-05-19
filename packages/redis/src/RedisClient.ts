@@ -29,7 +29,8 @@ enum RedisMetrics {
     XAdd = "cookie_cutter.redis_client.xadd",
     XRead = "cookie_cutter.redis_client.xread",
     XReadGroup = "cookie_cutter.redis_client.xreadgroup",
-    XGroup = "cookie_cutter.redis_client.xgroup",
+    XGroupCreate = "cookie_cutter.redis_client.xgroup.create",
+    XGroupAlreadyExists = "cookie_cutter.redis_client.xgroup.already_exists",
     XAck = "cookie_cutter.redis_client.xack",
 }
 
@@ -285,6 +286,59 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
                 error: e,
             });
             throw e;
+        } finally {
+            span.finish();
+        }
+    }
+
+    public async xGroup(
+        context: SpanContext,
+        streamName: string,
+        consumerGroup: string,
+        supressAlreadyExistsError: boolean = true
+    ): Promise<string> {
+        const db = this.config.db;
+        const span = this.tracer.startSpan(this.spanOperationName, { childOf: context });
+        this.spanLogAndSetTags(span, this.xGroup.name, this.config.db, undefined, streamName);
+        try {
+            const response = await this.client.xgroup([
+                "create",
+                streamName,
+                consumerGroup,
+                "$",
+                "mkstream",
+            ]);
+            this.metrics.increment(RedisMetrics.XGroupCreate, {
+                db,
+                streamName,
+                consumerGroup,
+                result: RedisMetricResults.Success,
+            });
+            return response;
+        } catch (err) {
+            const alreadyExistsErrorMessage = "BUSYGROUP Consumer Group name already exists";
+            if (supressAlreadyExistsError && err.message === alreadyExistsErrorMessage) {
+                // TODO should this be considered an error or success?
+                this.metrics.increment(RedisMetrics.XGroupAlreadyExists, {
+                    db,
+                    streamName,
+                    consumerGroup,
+                    result: RedisMetricResults.Success,
+                });
+
+                return "OK";
+            }
+
+            failSpan(span, err);
+            this.metrics.increment(RedisMetrics.XGroupCreate, {
+                db,
+                streamName,
+                consumerGroup,
+                result: RedisMetricResults.Error,
+                error: err,
+            });
+
+            throw err;
         } finally {
             span.finish();
         }

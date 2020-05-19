@@ -69,6 +69,12 @@ export interface IRedisClient {
         streamName: string,
         id?: string
     ): Promise<[string, T] | undefined>; // [streamId, T]
+    xGroup(
+        context: SpanContext,
+        streamName: string,
+        consumerGroup: string,
+        supressError?: boolean
+    ): Promise<string>;
 }
 
 export function redisClient(configuration: IRedisOptions): IRedisClient {

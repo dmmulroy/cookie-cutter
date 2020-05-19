@@ -59,7 +59,7 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
     ) => Promise<string>;
     private asyncXRead: (args: string[]) => Promise<XReadResult>;
     private asyncXGroup: (args: string[]) => Promise<"OK">;
-    private asyncXInfo: (args: string[]) => Promise<any>;
+    private asyncXInfo: <T = any>(args: string[]) => Promise<T>;
 
     constructor(host: string, port: number, db: number) {
         this.logger = DefaultComponentContext.logger;
