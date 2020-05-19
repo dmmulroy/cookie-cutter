@@ -71,6 +71,14 @@ export interface IRedisClient {
         streamName: string,
         id?: string
     ): Promise<[string, T] | undefined>; // [streamId, T]
+    xReadGroupObject<T>(
+        context: SpanContext,
+        type: string | IClassType<T>,
+        streamName: string,
+        consumerGroup: string,
+        consumerName: string,
+        id?: string
+    ): Promise<[string, T] | undefined>; // [streamId, T]
     xGroup(
         context: SpanContext,
         streamName: string,

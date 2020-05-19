@@ -377,4 +377,63 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
             span.finish();
         }
     }
+
+    public async xReadGroupObject<T>(
+        context: SpanContext,
+        type: string | IClassType<T>,
+        streamName: string,
+        consumerGroup: string,
+        consumerName: string,
+        id: string = ">"
+    ): Promise<[string, T]> {
+        const db = this.config.db;
+        const span = this.tracer.startSpan(this.spanOperationName, { childOf: context });
+        this.spanLogAndSetTags(span, this.getObject.name, this.config.db, id, streamName);
+        try {
+            const typeName = this.getTypeName(type);
+            const response = await this.client.xreadgroup([
+                "group",
+                consumerGroup,
+                consumerName,
+                "block",
+                "0",
+                "streams",
+                streamName,
+                id,
+            ]);
+            const value = extractXReadValue(response);
+            const streamId = extractXReadStreamId(response);
+            let data;
+            if (value) {
+                const buf = this.config.base64Encode
+                    ? Buffer.from(value, "base64")
+                    : Buffer.from(value);
+                const msg = this.encoder.decode(new Uint8Array(buf), typeName);
+                data = msg.payload;
+            }
+
+            this.metrics.increment(RedisMetrics.XReadGroup, {
+                type,
+                db,
+                streamName,
+                consumerGroup,
+                consumerName,
+                result: RedisMetricResults.Success,
+            });
+            return [streamId, data];
+        } catch (e) {
+            failSpan(span, e);
+            this.metrics.increment(RedisMetrics.XReadGroup, {
+                db,
+                streamName,
+                consumerGroup,
+                consumerName,
+                result: RedisMetricResults.Error,
+                error: e,
+            });
+            throw e;
+        } finally {
+            span.finish();
+        }
+    }
 }

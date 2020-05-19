@@ -24,7 +24,7 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
     }
 
     public async *start(): AsyncIterableIterator<MessageRef> {
-        let currentId = this.config.consumerGroupStartId ?? "$";
+        let currentId = this.config.consumerGroupStartId ?? ">";
         while (!this.done) {
             const span = this.tracer.startSpan(this.spanOperationName);
 
@@ -35,17 +35,24 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                 this.config.consumerGroup
             );
 
-            const [streamId, msg] = await this.client.xReadObject<MessageRef>(
+            const [streamId, msg] = await this.client.xReadGroupObject<MessageRef>(
                 span.context(),
                 MessageRef.name,
                 this.config.readStream,
+                this.config.consumerGroup,
+                "this.config.consumerName",
                 currentId
             );
 
             currentId = streamId;
 
             msg.once("released", async () => {
-                // await this.client.xAck(this.config.readStream, this.config.consumerGroup, streamId);
+                await this.client.xAck(
+                    span.context(),
+                    this.config.readStream,
+                    this.config.consumerGroup,
+                    streamId // TODO Start on forcing this to b '>' cause ID breaks everything
+                );
             });
 
             yield msg;
