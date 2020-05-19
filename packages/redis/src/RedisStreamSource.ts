@@ -24,7 +24,7 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
     }
 
     public async *start(): AsyncIterableIterator<MessageRef> {
-        let currentId = "$";
+        let currentId = this.config.consumerGroupStartId ?? "$";
         while (!this.done) {
             const span = this.tracer.startSpan(this.spanOperationName);
 

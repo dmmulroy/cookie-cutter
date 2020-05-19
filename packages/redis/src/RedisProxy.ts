@@ -126,8 +126,4 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
     public async xgroup(args: string[]): Promise<"OK"> {
         return this.asyncXGroup(args);
     }
-
-    public async xinfo(args: string[]): Promise<any> {
-        return this.asyncXInfo(args);
-    }
 }

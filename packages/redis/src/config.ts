@@ -58,19 +58,27 @@ export class RedisOptions implements IRedisOptions {
         return config.noop();
     }
 
-    @config.field(config.converters.listOf(config.converters.string))
-    public set readStream(_: string[]) {
+    @config.field(config.converters.string)
+    public set readStream(_: string) {
         config.noop();
     }
-    public get readStream(): string[] {
+    public get readStream(): string {
         return config.noop();
     }
 
     @config.field(config.converters.string)
-    public set readGroup(_: string[]) {
+    public set consumerGroup(_: string) {
         config.noop();
     }
-    public get readGroup(): string[] {
+    public get consumerGroup(): string {
+        return config.noop();
+    }
+
+    @config.field(config.converters.string)
+    public set consumerGroupStartId(_: string) {
+        config.noop();
+    }
+    public get consumerGroupStartId(): string {
         return config.noop();
     }
 

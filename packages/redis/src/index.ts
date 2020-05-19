@@ -12,11 +12,13 @@ import {
     IMessageTypeMapper,
     IOutputSink,
     IPublishedMessage,
+    IInputSource,
 } from "@walmartlabs/cookie-cutter-core";
 import { SpanContext } from "opentracing";
 import { RedisOptions } from "./config";
 import { RedisClient } from "./RedisClient";
 import { RedisStreamSink } from "./RedisStreamSink";
+import { RedisStreamSource } from "./RedisStreamSource";
 
 export interface IRedisOptions {
     readonly host: string;
@@ -29,7 +31,7 @@ export interface IRedisOptions {
 
 export type IRedisInputStreamOptions = IRedisOptions & {
     readStream: string;
-    consumerGroup?: string;
+    consumerGroup: string;
     consumerGroupStartId?: string;
 };
 
@@ -73,7 +75,7 @@ export interface IRedisClient {
         context: SpanContext,
         streamName: string,
         consumerGroup: string,
-        supressError?: boolean
+        supressAlreadyExistsError?: boolean
     ): Promise<string>;
 }
 
@@ -87,4 +89,13 @@ export function redisStreamSink(
 ): IOutputSink<IPublishedMessage> {
     configuration = config.parse(RedisOptions, configuration, { base64Encode: true });
     return new RedisStreamSink(configuration);
+}
+
+export function redisStreamSource(configuration: IRedisInputStreamOptions): IInputSource {
+    configuration = config.parse(RedisOptions, configuration, {
+        base64Encode: true,
+        consumerGroupStartId: "$",
+    });
+
+    return new RedisStreamSource(configuration);
 }
