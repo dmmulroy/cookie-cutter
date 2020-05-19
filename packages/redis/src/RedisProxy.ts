@@ -38,6 +38,7 @@ interface IRedisCommandPatches {
     xadd: (key: string, id: string, ...args: (string | Buffer)[] | Callback<string>[]) => boolean;
     xread: (args: string[], cb: Callback<XReadResult>) => boolean;
     xgroup: (args: string[], cb: Callback<"OK">) => boolean;
+    xack: (args: string[], cb: Callback<number>) => boolean;
     set: (key: string, value: string | Buffer, cb: Callback<"OK">) => boolean;
 }
 
@@ -58,6 +59,7 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
     ) => Promise<string>;
     private asyncXRead: (args: string[]) => Promise<XReadResult>;
     private asyncXGroup: (args: string[]) => Promise<"OK">;
+    private asyncXAck: (args: string[]) => Promise<number>;
 
     constructor(host: string, port: number, db: number) {
         this.logger = DefaultComponentContext.logger;
@@ -92,6 +94,7 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
         this.asyncXAdd = promisify(this.client.xadd).bind(this.client);
         this.asyncXRead = promisify(this.client.xread).bind(this.client);
         this.asyncXGroup = promisify(this.client.xgroup).bind(this.client);
+        this.asyncXAck = promisify(this.client.xack).bind(this.client);
         this.asyncQuit = promisify(this.client.quit).bind(this.client);
     }
 
@@ -125,5 +128,13 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
 
     public async xgroup(args: string[]): Promise<"OK"> {
         return this.asyncXGroup(args);
+    }
+
+    public async xack(
+        streamName: string,
+        consumerGroup: string,
+        streamId: string
+    ): Promise<number> {
+        return this.asyncXAck([streamName, consumerGroup, streamId]);
     }
 }

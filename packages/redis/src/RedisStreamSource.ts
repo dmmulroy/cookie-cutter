@@ -44,6 +44,10 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
 
             currentId = streamId;
 
+            msg.once("released", async () => {
+                // await this.client.xAck(this.config.readStream, this.config.consumerGroup, streamId);
+            });
+
             yield msg;
 
             span.finish();

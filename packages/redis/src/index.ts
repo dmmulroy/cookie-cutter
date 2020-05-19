@@ -77,6 +77,12 @@ export interface IRedisClient {
         consumerGroup: string,
         supressAlreadyExistsError?: boolean
     ): Promise<string>;
+    xAck(
+        context: SpanContext,
+        streamName: string,
+        consumerGroup: string,
+        streamId: string
+    ): Promise<number>;
 }
 
 export function redisClient(configuration: IRedisOptions): IRedisClient {

@@ -343,4 +343,38 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
             span.finish();
         }
     }
+
+    public async xAck(
+        context: SpanContext,
+        streamName: string,
+        consumerGroup: string,
+        streamId: string
+    ): Promise<number> {
+        const db = this.config.db;
+        const span = this.tracer.startSpan(this.spanOperationName, { childOf: context });
+        this.spanLogAndSetTags(span, this.xAck.name, this.config.db, undefined, streamName);
+        try {
+            const response = await this.client.xack(streamName, consumerGroup, streamId);
+            this.metrics.increment(RedisMetrics.XAck, {
+                db,
+                streamName,
+                consumerGroup,
+                result: RedisMetricResults.Success,
+            });
+            return response;
+        } catch (err) {
+            failSpan(span, err);
+            this.metrics.increment(RedisMetrics.XAck, {
+                db,
+                streamName,
+                consumerGroup,
+                result: RedisMetricResults.Error,
+                error: err,
+            });
+
+            throw err;
+        } finally {
+            span.finish();
+        }
+    }
 }
