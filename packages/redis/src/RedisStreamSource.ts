@@ -40,7 +40,7 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                 MessageRef.name,
                 this.config.readStream,
                 this.config.consumerGroup,
-                "this.config.consumerName",
+                "some-unique-id",
                 currentId
             );
 
@@ -51,7 +51,7 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                     span.context(),
                     this.config.readStream,
                     this.config.consumerGroup,
-                    streamId // TODO Start on forcing this to b '>' cause ID breaks everything
+                    streamId // TODO Start on forcing this to be '>' b/c using ID breaks everything
                 );
             });
 
