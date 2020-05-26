@@ -48,26 +48,30 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                 ([, , idleTime]) => idleTime > this.config.idleTimeoutMs
             );
 
-            // expiredIdleMessages.forEach(([streamId]) => this.client.xClaim)
-
-            const [streamId, msg] = await this.client.xReadGroupObject<MessageRef>(
-                span.context(),
-                MessageRef.name,
-                this.config.readStream,
-                this.config.consumerGroup,
-                this.clientId
-            );
-
-            msg.once("released", async () => {
-                await this.client.xAck(
+            if (expiredIdleMessages.length > 0) {
+                for (let [streamId] of expiredIdleMessages) {
+                    //const [streamId, msg] = await this.client.xClaim(span.context(), MessageRef.name, this.config.readStream, this.config.consumerGroup, streamId)
+                }
+            } else {
+                const [streamId, msg] = await this.client.xReadGroupObject<MessageRef>(
                     span.context(),
+                    MessageRef.name,
                     this.config.readStream,
                     this.config.consumerGroup,
-                    streamId
+                    this.clientId
                 );
-            });
 
-            yield msg;
+                msg.once("released", async () => {
+                    await this.client.xAck(
+                        span.context(),
+                        this.config.readStream,
+                        this.config.consumerGroup,
+                        streamId
+                    );
+                });
+
+                yield msg;
+            }
 
             span.finish();
         }
