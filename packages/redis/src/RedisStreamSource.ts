@@ -19,11 +19,11 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
     private client: Lifecycle<IRedisClient>;
     private tracer: Tracer;
     private spanOperationName: string = "Redis Input Source Client Call";
-    private clientId: string;
+    private consumerId: string;
 
     constructor(private readonly config: IRedisInputStreamOptions) {
         this.tracer = DefaultComponentContext.tracer;
-        this.clientId = generate();
+        this.consumerId = generate();
     }
 
     public async *start(): AsyncIterableIterator<MessageRef> {
@@ -49,8 +49,28 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
             );
 
             if (expiredIdleMessages.length > 0) {
+                // drain expired idle messages
                 for (let [streamId] of expiredIdleMessages) {
-                    //const [streamId, msg] = await this.client.xClaim(span.context(), MessageRef.name, this.config.readStream, this.config.consumerGroup, streamId)
+                    const [, msg] = await this.client.xClaim(
+                        span.context(),
+                        MessageRef.name,
+                        this.config.readStream,
+                        this.config.consumerGroup,
+                        this.consumerId,
+                        this.config.idleTimeoutMs,
+                        streamId
+                    );
+
+                    msg.once("released", async () => {
+                        await this.client.xAck(
+                            span.context(),
+                            this.config.readStream,
+                            this.config.consumerGroup,
+                            streamId
+                        );
+                    });
+
+                    yield msg;
                 }
             } else {
                 const [streamId, msg] = await this.client.xReadGroupObject<MessageRef>(
@@ -58,7 +78,7 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                     MessageRef.name,
                     this.config.readStream,
                     this.config.consumerGroup,
-                    this.clientId
+                    this.consumerId
                 );
 
                 msg.once("released", async () => {

@@ -21,7 +21,7 @@ import {
 import { Span, SpanContext, Tags, Tracer } from "opentracing";
 import { isString } from "util";
 import { IRedisOptions, IRedisClient, AutoGenerateRedisStreamID } from ".";
-import { RedisProxy, XReadResult } from "./RedisProxy";
+import { RedisProxy, StreamResult } from "./RedisProxy";
 
 enum RedisMetrics {
     Get = "cookie_cutter.redis_client.get",
@@ -33,6 +33,7 @@ enum RedisMetrics {
     XGroupAlreadyExists = "cookie_cutter.redis_client.xgroup.already_exists",
     XAck = "cookie_cutter.redis_client.xack",
     xPending = "cookie_cutter.redis_client.xpending",
+    xClaim = "cookie_cutter.redis_client.xclaim",
 }
 
 enum RedisMetricResults {
@@ -44,7 +45,7 @@ export enum RedisOpenTracingTagKeys {
     BucketName = "redis.bucket",
 }
 
-function extractXReadValue(results: XReadResult): string {
+function extractStreamValue(results: StreamResult): string {
     // Since our initial implementation on pulls 1 value from 1 stream at a time
     // there should only 1 item in results
 
@@ -60,7 +61,7 @@ function extractXReadValue(results: XReadResult): string {
     return data;
 }
 
-function extractXReadStreamId(results: XReadResult): string {
+function extractStreamId(results: StreamResult): string {
     // Since our initial implementation on pulls 1 value from 1 stream at a time
     // there should only 1 item in results
 
@@ -258,12 +259,12 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
     ): Promise<[string, T] | undefined> {
         const db = this.config.db;
         const span = this.tracer.startSpan(this.spanOperationName, { childOf: context });
-        this.spanLogAndSetTags(span, this.getObject.name, this.config.db, id, streamName);
+        this.spanLogAndSetTags(span, this.xReadObject.name, this.config.db, id, streamName);
         try {
             const typeName = this.getTypeName(type);
             const response = await this.client.xread(["block", "0", "streams", streamName, id]);
-            const value = extractXReadValue(response);
-            const streamId = extractXReadStreamId(response);
+            const value = extractStreamValue(response);
+            const streamId = extractStreamId(response);
             let data;
             if (value) {
                 const buf = this.config.base64Encode
@@ -389,7 +390,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
     ): Promise<[string, T]> {
         const db = this.config.db;
         const span = this.tracer.startSpan(this.spanOperationName, { childOf: context });
-        this.spanLogAndSetTags(span, this.getObject.name, this.config.db, id, streamName);
+        this.spanLogAndSetTags(span, this.xReadGroupObject.name, this.config.db, id, streamName);
         try {
             const typeName = this.getTypeName(type);
             const response = await this.client.xreadgroup([
@@ -402,8 +403,8 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
                 streamName,
                 id,
             ]);
-            const value = extractXReadValue(response);
-            const streamId = extractXReadStreamId(response);
+            const value = extractStreamValue(response);
+            const streamId = extractStreamId(response);
             let data;
             if (value) {
                 const buf = this.config.base64Encode
@@ -473,6 +474,63 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
             });
 
             throw err;
+        } finally {
+            span.finish();
+        }
+    }
+
+    public async xClaim<T>(
+        context: SpanContext,
+        type: string | IClassType<T>,
+        streamName: string,
+        consumerGroup: string,
+        consumerName: string,
+        minIdleTime: number,
+        id: string
+    ): Promise<[string, T]> {
+        const db = this.config.db;
+        const span = this.tracer.startSpan(this.spanOperationName, { childOf: context });
+        this.spanLogAndSetTags(span, this.getObject.name, this.config.db, id, streamName);
+        try {
+            const typeName = this.getTypeName(type);
+            const response = await this.client.xclaim([
+                streamName,
+                consumerGroup,
+                consumerName,
+                String(minIdleTime),
+                id,
+            ]);
+            const value = extractStreamValue(response);
+            const streamId = extractStreamId(response);
+            let data;
+            if (value) {
+                const buf = this.config.base64Encode
+                    ? Buffer.from(value, "base64")
+                    : Buffer.from(value);
+                const msg = this.encoder.decode(new Uint8Array(buf), typeName);
+                data = msg.payload;
+            }
+
+            this.metrics.increment(RedisMetrics.xClaim, {
+                type,
+                db,
+                streamName,
+                consumerGroup,
+                consumerName,
+                result: RedisMetricResults.Success,
+            });
+            return [streamId, data];
+        } catch (e) {
+            failSpan(span, e);
+            this.metrics.increment(RedisMetrics.xClaim, {
+                db,
+                streamName,
+                consumerGroup,
+                consumerName,
+                result: RedisMetricResults.Error,
+                error: e,
+            });
+            throw e;
         } finally {
             span.finish();
         }

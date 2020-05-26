@@ -97,6 +97,15 @@ export interface IRedisClient {
         consumerGroup: string,
         count?: number
     ): Promise<[[string, string, number, number]]>; // [[streamId, consumerName, idleTime, claims]];
+    xClaim<T>(
+        context: SpanContext,
+        type: string | IClassType<T>,
+        streamName: string,
+        consumerGroup: string,
+        consumerName: string,
+        minIdleTime: number,
+        streamId: string
+    );
 }
 
 export function redisClient(configuration: IRedisOptions): IRedisClient {
