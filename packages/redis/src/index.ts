@@ -32,6 +32,7 @@ export interface IRedisOptions {
 export type IRedisInputStreamOptions = IRedisOptions & {
     readStream: string;
     consumerGroup: string;
+    idleTimeoutMs: number;
 };
 
 export type IRedisOutputStreamOptions = IRedisOptions & {
@@ -90,6 +91,12 @@ export interface IRedisClient {
         consumerGroup: string,
         streamId: string
     ): Promise<number>;
+    xPending(
+        context: SpanContext,
+        streamName: string,
+        consumerGroup: string,
+        count?: number
+    ): Promise<[[string, string, number, number]]>; // [[streamId, consumerName, idleTime, claims]];
 }
 
 export function redisClient(configuration: IRedisOptions): IRedisClient {

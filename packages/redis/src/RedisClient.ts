@@ -32,6 +32,7 @@ enum RedisMetrics {
     XGroupCreate = "cookie_cutter.redis_client.xgroup.create",
     XGroupAlreadyExists = "cookie_cutter.redis_client.xgroup.already_exists",
     XAck = "cookie_cutter.redis_client.xack",
+    xPending = "cookie_cutter.redis_client.xpending",
 }
 
 enum RedisMetricResults {
@@ -432,6 +433,46 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
                 error: e,
             });
             throw e;
+        } finally {
+            span.finish();
+        }
+    }
+
+    public async xPending(
+        context: SpanContext,
+        streamName: string,
+        consumerGroup: string,
+        count = 5
+    ): Promise<[[string, string, number, number]]> {
+        const db = this.config.db;
+        const span = this.tracer.startSpan(this.spanOperationName, { childOf: context });
+        this.spanLogAndSetTags(span, this.xPending.name, this.config.db, undefined, streamName);
+        try {
+            const response = await this.client.xpending([
+                streamName,
+                consumerGroup,
+                "-",
+                "+",
+                String(count),
+            ]);
+            this.metrics.increment(RedisMetrics.xPending, {
+                db,
+                streamName,
+                consumerGroup,
+                result: RedisMetricResults.Success,
+            });
+            return response;
+        } catch (err) {
+            failSpan(span, err);
+            this.metrics.increment(RedisMetrics.xPending, {
+                db,
+                streamName,
+                consumerGroup,
+                result: RedisMetricResults.Error,
+                error: err,
+            });
+
+            throw err;
         } finally {
             span.finish();
         }

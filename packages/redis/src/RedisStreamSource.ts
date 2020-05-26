@@ -37,6 +37,19 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                 this.config.consumerGroup
             );
 
+            const pendingMessages = await this.client.xPending(
+                span.context(),
+                this.config.readStream,
+                this.config.consumerGroup,
+                5
+            );
+
+            const expiredIdleMessages = pendingMessages.filter(
+                ([, , idleTime]) => idleTime > this.config.idleTimeoutMs
+            );
+
+            // expiredIdleMessages.forEach(([streamId]) => this.client.xClaim)
+
             const [streamId, msg] = await this.client.xReadGroupObject<MessageRef>(
                 span.context(),
                 MessageRef.name,

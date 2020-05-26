@@ -74,6 +74,14 @@ export class RedisOptions implements IRedisOptions {
         return config.noop();
     }
 
+    @config.field(config.converters.number)
+    public set idleTimeoutMs(_: number) {
+        config.noop();
+    }
+    public get idleTimeoutMs(): number {
+        return config.noop();
+    }
+
     @config.field(config.converters.boolean)
     public set base64Encode(_: boolean) {
         config.noop();
