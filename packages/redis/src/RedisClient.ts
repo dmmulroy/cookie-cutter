@@ -46,8 +46,8 @@ export enum RedisOpenTracingTagKeys {
 }
 
 function extractStreamValue(results: StreamResult): string {
-    // Since our initial implementation on pulls 1 value from 1 stream at a time
-    // there should only 1 item in results
+    // Since our initial implementation only pulls 1 value from 1 stream at a time
+    // there should only be 1 item in results
 
     // [streamName, [streamValue]]
     const [, [streamValue]] = results[0];
