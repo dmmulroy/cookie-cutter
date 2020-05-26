@@ -98,7 +98,7 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
     }
 
     stop(): Promise<void> {
-        throw new Error("Method not implemented.");
+        return;
     }
 
     public async initialize(context: IComponentContext): Promise<void> {

@@ -25,7 +25,7 @@ import { createClient } from "redis";
 import { IRedisClient, redisClient, IRedisOutputStreamOptions } from "../index";
 import { RedisStreamSink } from "../RedisStreamSink";
 import { promisify } from "util";
-import { RedisClientWithStreamOperations, XReadResult } from "../RedisProxy";
+import { RedisClientWithStreamOperations, StreamResult } from "../RedisProxy";
 
 class Foo {
     constructor(public text: string) {}
@@ -128,7 +128,7 @@ describe("redis integration test", () => {
 
             // This IIFE will be moved into a utility function in the PR for the Stream Source
             // and refactored/used here in that PR.
-            const storedValue = ((results: XReadResult): Uint8Array => {
+            const storedValue = ((results: StreamResult): Uint8Array => {
                 // Since our initial implementation on pulls 1 value from 1 stream at a time
                 // there should only 1 item in results
 
