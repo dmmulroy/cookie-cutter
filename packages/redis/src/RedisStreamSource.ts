@@ -9,6 +9,7 @@ import {
     makeLifecycle,
 } from "@walmartlabs/cookie-cutter-core";
 import { Span, Tags, Tracer } from "opentracing";
+import { generate } from "shortid";
 
 import { IRedisInputStreamOptions, IRedisClient, redisClient } from ".";
 import { RedisOpenTracingTagKeys } from "./RedisClient";
@@ -18,9 +19,11 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
     private client: Lifecycle<IRedisClient>;
     private tracer: Tracer;
     private spanOperationName: string = "Redis Input Source Client Call";
+    private clientId: string;
 
     constructor(private readonly config: IRedisInputStreamOptions) {
         this.tracer = DefaultComponentContext.tracer;
+        this.clientId = generate();
     }
 
     public async *start(): AsyncIterableIterator<MessageRef> {
@@ -40,7 +43,7 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                 MessageRef.name,
                 this.config.readStream,
                 this.config.consumerGroup,
-                "some-unique-id",
+                this.clientId,
                 currentId
             );
 
