@@ -32,7 +32,6 @@ export interface IRedisOptions {
 export type IRedisInputStreamOptions = IRedisOptions & {
     readStream: string;
     consumerGroup: string;
-    consumerGroupStartId?: string;
 };
 
 export type IRedisOutputStreamOptions = IRedisOptions & {
@@ -108,7 +107,6 @@ export function redisStreamSink(
 export function redisStreamSource(configuration: IRedisInputStreamOptions): IInputSource {
     configuration = config.parse(RedisOptions, configuration, {
         base64Encode: true,
-        consumerGroupStartId: "$",
     });
 
     return new RedisStreamSource(configuration);

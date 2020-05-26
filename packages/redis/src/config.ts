@@ -74,14 +74,6 @@ export class RedisOptions implements IRedisOptions {
         return config.noop();
     }
 
-    @config.field(config.converters.string)
-    public set consumerGroupStartId(_: string) {
-        config.noop();
-    }
-    public get consumerGroupStartId(): string {
-        return config.noop();
-    }
-
     @config.field(config.converters.boolean)
     public set base64Encode(_: boolean) {
         config.noop();

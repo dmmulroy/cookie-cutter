@@ -27,7 +27,6 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
     }
 
     public async *start(): AsyncIterableIterator<MessageRef> {
-        let currentId = this.config.consumerGroupStartId ?? ">";
         while (!this.done) {
             const span = this.tracer.startSpan(this.spanOperationName);
 
@@ -43,18 +42,15 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                 MessageRef.name,
                 this.config.readStream,
                 this.config.consumerGroup,
-                this.clientId,
-                currentId
+                this.clientId
             );
-
-            currentId = streamId;
 
             msg.once("released", async () => {
                 await this.client.xAck(
                     span.context(),
                     this.config.readStream,
                     this.config.consumerGroup,
-                    streamId // TODO Start on forcing this to be '>' b/c using ID breaks everything
+                    streamId
                 );
             });
 
