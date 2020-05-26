@@ -123,6 +123,7 @@ export function redisStreamSink(
 export function redisStreamSource(configuration: IRedisInputStreamOptions): IInputSource {
     configuration = config.parse(RedisOptions, configuration, {
         base64Encode: true,
+        idleTimeoutMs: 20000,
     });
 
     return new RedisStreamSource(configuration);
