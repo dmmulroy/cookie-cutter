@@ -95,6 +95,7 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
         this.client.on(RedisEvents.End, () => {
             this.logger.info(RedisLogMessages.End);
         });
+
         this.asyncGet = promisify(this.client.get).bind(this.client);
         this.asyncSet = promisify(this.client.set).bind(this.client);
         this.asyncXAdd = promisify(this.client.xadd).bind(this.client);
