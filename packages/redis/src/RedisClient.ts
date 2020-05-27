@@ -80,7 +80,6 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
     private typeMapper: IMessageTypeMapper;
     private tracer: Tracer;
     private metrics: IMetrics;
-    private spanOperationName: string = "Redis Client Call";
 
     constructor(private readonly config: IRedisOptions) {
         this.encoder = config.encoder;
@@ -132,7 +131,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
         key: string
     ): Promise<void> {
         const db = this.config.db;
-        const span = this.tracer.startSpan(this.spanOperationName, { childOf: context });
+        const span = this.tracer.startSpan("Redis Client putObject Call", { childOf: context });
         this.spanLogAndSetTags(span, this.putObject.name, db, key);
         const typeName = this.getTypeName(type);
         const msg: IMessage = {
@@ -169,7 +168,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
         key: string
     ): Promise<T | undefined> {
         const db = this.config.db;
-        const span = this.tracer.startSpan(this.spanOperationName, { childOf: context });
+        const span = this.tracer.startSpan("Redis Client getObject Call", { childOf: context });
         this.spanLogAndSetTags(span, this.getObject.name, this.config.db, key);
         try {
             const typeName = this.getTypeName(type);
@@ -213,7 +212,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
         id: string = AutoGenerateRedisStreamID
     ): Promise<string> {
         const db = this.config.db;
-        const span = this.tracer!.startSpan(this.spanOperationName, { childOf: context });
+        const span = this.tracer!.startSpan("Redis Client xAddObject Call", { childOf: context });
 
         this.spanLogAndSetTags(span, this.xAddObject.name, db, key, streamName);
 
@@ -258,7 +257,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
         id?: string
     ): Promise<[string, T] | undefined> {
         const db = this.config.db;
-        const span = this.tracer.startSpan(this.spanOperationName, { childOf: context });
+        const span = this.tracer.startSpan("Redis Client xReadObject Call", { childOf: context });
         this.spanLogAndSetTags(span, this.xReadObject.name, this.config.db, id, streamName);
         try {
             const typeName = this.getTypeName(type);
@@ -300,7 +299,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
         supressAlreadyExistsError: boolean = true
     ): Promise<string> {
         const db = this.config.db;
-        const span = this.tracer.startSpan(this.spanOperationName, { childOf: context });
+        const span = this.tracer.startSpan("Redis Client xGroup Call", { childOf: context });
         this.spanLogAndSetTags(span, this.xGroup.name, this.config.db, undefined, streamName);
         try {
             const response = await this.client.xgroup([
@@ -353,7 +352,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
         streamId: string
     ): Promise<number> {
         const db = this.config.db;
-        const span = this.tracer.startSpan(this.spanOperationName, { childOf: context });
+        const span = this.tracer.startSpan("Redis Client xAck Call", { childOf: context });
         this.spanLogAndSetTags(span, this.xAck.name, this.config.db, undefined, streamName);
         try {
             const response = await this.client.xack(streamName, consumerGroup, streamId);
@@ -389,7 +388,9 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
         id: string = ">"
     ): Promise<[string, T]> {
         const db = this.config.db;
-        const span = this.tracer.startSpan(this.spanOperationName, { childOf: context });
+        const span = this.tracer.startSpan("Redis Client xReadGroupObject Call", {
+            childOf: context,
+        });
         this.spanLogAndSetTags(span, this.xReadGroupObject.name, this.config.db, id, streamName);
         try {
             const typeName = this.getTypeName(type);
@@ -446,7 +447,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
         count = 5
     ): Promise<[[string, string, number, number]]> {
         const db = this.config.db;
-        const span = this.tracer.startSpan(this.spanOperationName, { childOf: context });
+        const span = this.tracer.startSpan("Redis Client xPending Call", { childOf: context });
         this.spanLogAndSetTags(span, this.xPending.name, this.config.db, undefined, streamName);
         try {
             const response = await this.client.xpending([
@@ -489,7 +490,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
         id: string
     ): Promise<[string, T]> {
         const db = this.config.db;
-        const span = this.tracer.startSpan(this.spanOperationName, { childOf: context });
+        const span = this.tracer.startSpan("Redis Client xClaim Call", { childOf: context });
         this.spanLogAndSetTags(span, this.getObject.name, this.config.db, id, streamName);
         try {
             const typeName = this.getTypeName(type);
