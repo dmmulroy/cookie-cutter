@@ -32,7 +32,9 @@ export interface IRedisOptions {
 export type IRedisInputStreamOptions = IRedisOptions & {
     readStream: string;
     consumerGroup: string;
+    consumerGroupStartId?: string;
     idleTimeoutMs: number;
+    idleTimeoutBatchSize: number;
 };
 
 export type IRedisOutputStreamOptions = IRedisOptions & {
@@ -83,6 +85,7 @@ export interface IRedisClient {
         context: SpanContext,
         streamName: string,
         consumerGroup: string,
+        consumerGroupStartId: string,
         supressAlreadyExistsError?: boolean
     ): Promise<string>;
     xAck(
@@ -123,7 +126,7 @@ export function redisStreamSink(
 export function redisStreamSource(configuration: IRedisInputStreamOptions): IInputSource {
     configuration = config.parse(RedisOptions, configuration, {
         base64Encode: true,
-        idleTimeoutMs: 20000,
+        consumerGroupStartId: "$",
     });
 
     return new RedisStreamSource(configuration);

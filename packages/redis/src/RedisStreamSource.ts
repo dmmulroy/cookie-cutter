@@ -117,7 +117,12 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
         );
 
         // Attempt to create stream + consumer group if they don't already exist
-        await this.client.xGroup(span.context(), this.config.readStream, this.config.consumerGroup);
+        await this.client.xGroup(
+            span.context(),
+            this.config.readStream,
+            this.config.consumerGroup,
+            this.config.consumerGroupStartId
+        );
 
         span.finish();
     }

@@ -296,6 +296,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
         context: SpanContext,
         streamName: string,
         consumerGroup: string,
+        consumerGroupStartId: string,
         supressAlreadyExistsError: boolean = true
     ): Promise<string> {
         const db = this.config.db;
@@ -306,7 +307,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
                 "create",
                 streamName,
                 consumerGroup,
-                "$",
+                consumerGroupStartId,
                 "mkstream",
             ]);
             this.metrics.increment(RedisMetrics.XGroupCreate, {
