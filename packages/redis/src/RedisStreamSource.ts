@@ -7,6 +7,7 @@ import {
     DefaultComponentContext,
     Lifecycle,
     makeLifecycle,
+    failSpan,
 } from "@walmartlabs/cookie-cutter-core";
 import { Span, Tags, Tracer } from "opentracing";
 
@@ -36,42 +37,74 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                 this.config.consumerGroup
             );
 
-            if (initial) {
-                pendingMessages = await this.client.xReadGroupObject(
-                    span.context(),
-                    MessageRef.name,
-                    this.config.readStream,
-                    this.config.consumerGroup,
-                    this.config.consumerId,
-                    "0"
-                );
-
-                initial = false;
-            } else {
-                pendingMessages = await this.client.xPending(
-                    span.context(),
-                    this.config.readStream,
-                    this.config.consumerGroup,
-                    this.config.idleTimeoutBatchSize
-                );
-            }
-
-            const expiredIdleMessages = pendingMessages.filter(
-                ([, , idleTime]) => idleTime > this.config.idleTimeoutMs
-            );
-
-            if (expiredIdleMessages.length > 0) {
-                // drain expired idle messages
-                for (let [streamId] of expiredIdleMessages) {
-                    const [, msg] = await this.client.xClaim<MessageRef>(
+            try {
+                if (initial) {
+                    pendingMessages = await this.client.xReadGroupObject<MessageRef>(
                         span.context(),
                         MessageRef.name,
                         this.config.readStream,
                         this.config.consumerGroup,
                         this.config.consumerId,
-                        this.config.idleTimeoutMs,
-                        streamId
+                        "0"
                     );
+
+                    initial = false;
+                } else {
+                    pendingMessages = await this.client.xPending(
+                        span.context(),
+                        this.config.readStream,
+                        this.config.consumerGroup,
+                        this.config.idleTimeoutBatchSize
+                    );
+                }
+
+                const expiredIdleMessages = pendingMessages.filter(
+                    ([, , idleTime]) => idleTime > this.config.idleTimeoutMs
+                );
+
+                if (expiredIdleMessages.length > 0) {
+                    // drain expired idle messages
+                    for (let [
+                        streamId,
+                        consumerId,
+                        idleTime,
+                        timesDelivered,
+                    ] of expiredIdleMessages) {
+                        const [, msg] = await this.client.xClaim<MessageRef>(
+                            span.context(),
+                            MessageRef.name,
+                            this.config.readStream,
+                            this.config.consumerGroup,
+                            this.config.consumerId,
+                            this.config.idleTimeoutMs,
+                            streamId
+                        );
+
+                        msg.addMetadata({ streamId, consumerId, idleTime, timesDelivered });
+
+                        msg.once("released", async () => {
+                            await this.client.xAck(
+                                span.context(),
+                                this.config.readStream,
+                                this.config.consumerGroup,
+                                streamId
+                            );
+
+                            span.finish();
+                        });
+
+                        yield msg;
+                    }
+                } else {
+                    const [streamId, msg] = await this.client.xReadGroupObject<MessageRef>(
+                        span.context(),
+                        MessageRef.name,
+                        this.config.readStream,
+                        this.config.consumerGroup,
+                        this.config.consumerId
+                    );
+
+                    msg.addMetadata({ streamId });
 
                     msg.once("released", async () => {
                         await this.client.xAck(
@@ -86,27 +119,9 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
 
                     yield msg;
                 }
-            } else {
-                const [streamId, msg] = await this.client.xReadGroupObject<MessageRef>(
-                    span.context(),
-                    MessageRef.name,
-                    this.config.readStream,
-                    this.config.consumerGroup,
-                    this.config.consumerId
-                );
-
-                msg.once("released", async () => {
-                    await this.client.xAck(
-                        span.context(),
-                        this.config.readStream,
-                        this.config.consumerGroup,
-                        streamId
-                    );
-
-                    span.finish();
-                });
-
-                yield msg;
+            } catch (error) {
+                failSpan(span, error);
+                throw error;
             }
         }
     }
@@ -130,15 +145,20 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
             this.config.consumerGroup
         );
 
-        // Attempt to create stream + consumer group if they don't already exist
-        await this.client.xGroup(
-            span.context(),
-            this.config.readStream,
-            this.config.consumerGroup,
-            this.config.consumerGroupStartId
-        );
-
-        span.finish();
+        try {
+            // Attempt to create stream + consumer group if they don't already exist
+            await this.client.xGroup(
+                span.context(),
+                this.config.readStream,
+                this.config.consumerGroup,
+                this.config.consumerGroupStartId
+            );
+        } catch (error) {
+            failSpan(span, error);
+            throw error;
+        } finally {
+            span.finish();
+        }
     }
 
     public async dispose(): Promise<void> {
