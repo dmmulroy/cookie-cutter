@@ -32,8 +32,8 @@ enum RedisMetrics {
     XGroupCreate = "cookie_cutter.redis_client.xgroup.create",
     XGroupAlreadyExists = "cookie_cutter.redis_client.xgroup.already_exists",
     XAck = "cookie_cutter.redis_client.xack",
-    xPending = "cookie_cutter.redis_client.xpending",
-    xClaim = "cookie_cutter.redis_client.xclaim",
+    XPending = "cookie_cutter.redis_client.xpending",
+    XClaim = "cookie_cutter.redis_client.xclaim",
 }
 
 enum RedisMetricResults {
@@ -458,7 +458,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
                 "+",
                 String(count),
             ]);
-            this.metrics.increment(RedisMetrics.xPending, {
+            this.metrics.increment(RedisMetrics.XPending, {
                 db,
                 streamName,
                 consumerGroup,
@@ -467,7 +467,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
             return response;
         } catch (err) {
             failSpan(span, err);
-            this.metrics.increment(RedisMetrics.xPending, {
+            this.metrics.increment(RedisMetrics.XPending, {
                 db,
                 streamName,
                 consumerGroup,
@@ -513,7 +513,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
                 data = msg.payload;
             }
 
-            this.metrics.increment(RedisMetrics.xClaim, {
+            this.metrics.increment(RedisMetrics.XClaim, {
                 type,
                 db,
                 streamName,
@@ -524,7 +524,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
             return [streamId, data];
         } catch (e) {
             failSpan(span, e);
-            this.metrics.increment(RedisMetrics.xClaim, {
+            this.metrics.increment(RedisMetrics.XClaim, {
                 db,
                 streamName,
                 consumerGroup,
