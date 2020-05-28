@@ -7,6 +7,7 @@ import {
     DefaultComponentContext,
     Lifecycle,
     makeLifecycle,
+    failSpan,
 } from "@walmartlabs/cookie-cutter-core";
 import { Span, Tags, Tracer } from "opentracing";
 
@@ -37,7 +38,7 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
             );
 
             if (initial) {
-                pendingMessages = await this.client.xReadGroupObject(
+                pendingMessages = await this.client.xReadGroupObject<MessageRef>(
                     span.context(),
                     MessageRef.name,
                     this.config.readStream,
@@ -62,7 +63,7 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
 
             if (expiredIdleMessages.length > 0) {
                 // drain expired idle messages
-                for (let [streamId] of expiredIdleMessages) {
+                for (let [streamId, consumerId, idleTime, timesDelivered] of expiredIdleMessages) {
                     const [, msg] = await this.client.xClaim<MessageRef>(
                         span.context(),
                         MessageRef.name,
@@ -72,6 +73,8 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                         this.config.idleTimeoutMs,
                         streamId
                     );
+
+                    msg.addMetadata({ streamId, consumerId, idleTime, timesDelivered });
 
                     msg.once("released", async () => {
                         await this.client.xAck(
@@ -94,6 +97,8 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                     this.config.consumerGroup,
                     this.config.consumerId
                 );
+
+                msg.addMetadata({ streamId });
 
                 msg.once("released", async () => {
                     await this.client.xAck(
@@ -130,15 +135,20 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
             this.config.consumerGroup
         );
 
-        // Attempt to create stream + consumer group if they don't already exist
-        await this.client.xGroup(
-            span.context(),
-            this.config.readStream,
-            this.config.consumerGroup,
-            this.config.consumerGroupStartId
-        );
-
-        span.finish();
+        try {
+            // Attempt to create stream + consumer group if they don't already exist
+            await this.client.xGroup(
+                span.context(),
+                this.config.readStream,
+                this.config.consumerGroup,
+                this.config.consumerGroupStartId
+            );
+        } catch (error) {
+            failSpan(span, error);
+            throw error;
+        } finally {
+            span.finish();
+        }
     }
 
     public async dispose(): Promise<void> {
