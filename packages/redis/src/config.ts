@@ -75,6 +75,14 @@ export class RedisOptions implements IRedisOptions {
     }
 
     @config.field(config.converters.string)
+    public set consumerId(_: string) {
+        config.noop();
+    }
+    public get consumerId(): string {
+        return config.noop();
+    }
+
+    @config.field(config.converters.string)
     public set consumerGroupStartId(_: string) {
         config.noop();
     }

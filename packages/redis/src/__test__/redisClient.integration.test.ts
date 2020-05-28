@@ -22,10 +22,16 @@ import {
 import { SpanContext } from "opentracing";
 import { createClient } from "redis";
 
-import { IRedisClient, redisClient, IRedisOutputStreamOptions } from "../index";
+import {
+    IRedisClient,
+    redisClient,
+    IRedisOutputStreamOptions,
+    IRedisInputStreamOptions,
+} from "../index";
 import { RedisStreamSink } from "../RedisStreamSink";
 import { promisify } from "util";
 import { RedisClientWithStreamOperations, StreamResult } from "../RedisProxy";
+import { RedisStreamSource } from "../RedisStreamSource";
 
 class Foo {
     constructor(public text: string) {}
@@ -39,13 +45,17 @@ class TestClass {
 }
 
 describe("redis integration test", () => {
-    const config: IRedisOutputStreamOptions = {
+    const config: IRedisOutputStreamOptions & IRedisInputStreamOptions = {
         host: "localhost",
         port: 6379,
         db: 0,
         encoder: new JsonMessageEncoder(),
         typeMapper: new ObjectNameMessageTypeMapper(),
         writeStream: "test-stream",
+        readStream: "test-stream",
+        consumerGroup: "test-consumer-group",
+        idleTimeoutBatchSize: 5,
+        idleTimeoutMs: 5000,
     };
     let ccClient: Lifecycle<IRedisClient>;
     let client: RedisClientWithStreamOperations;
@@ -148,5 +158,14 @@ describe("redis integration test", () => {
 
             expect(msg.payload.text).toEqual(`output for ${inputMsg.text}`);
         }
+    });
+
+    it("succesfully creates a new consumer group", async () => {
+        const app = Application.create()
+            .logger(new ConsoleLogger())
+            .input()
+            .add(new RedisStreamSource(config))
+            .done()
+            .run(ErrorHandlingMode.LogAndContinue);
     });
 });

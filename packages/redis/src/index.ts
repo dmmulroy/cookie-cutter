@@ -13,8 +13,11 @@ import {
     IOutputSink,
     IPublishedMessage,
     IInputSource,
+    generateUniqueId,
 } from "@walmartlabs/cookie-cutter-core";
 import { SpanContext } from "opentracing";
+import { generate } from "shortid";
+
 import { RedisOptions } from "./config";
 import { RedisClient } from "./RedisClient";
 import { RedisStreamSink } from "./RedisStreamSink";
@@ -32,6 +35,7 @@ export interface IRedisOptions {
 export type IRedisInputStreamOptions = IRedisOptions & {
     readStream: string;
     consumerGroup: string;
+    consumerId?: string;
     consumerGroupStartId?: string;
     idleTimeoutMs: number;
     idleTimeoutBatchSize: number;
@@ -108,7 +112,7 @@ export interface IRedisClient {
         consumerName: string,
         minIdleTime: number,
         streamId: string
-    );
+    ): Promise<[string, T] | undefined>; // [streamId, T];
 }
 
 export function redisClient(configuration: IRedisOptions): IRedisClient {
@@ -126,6 +130,7 @@ export function redisStreamSink(
 export function redisStreamSource(configuration: IRedisInputStreamOptions): IInputSource {
     configuration = config.parse(RedisOptions, configuration, {
         base64Encode: true,
+        consumerId: generate(),
         consumerGroupStartId: "$",
     });
 

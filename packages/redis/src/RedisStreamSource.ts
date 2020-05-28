@@ -9,7 +9,6 @@ import {
     makeLifecycle,
 } from "@walmartlabs/cookie-cutter-core";
 import { Span, Tags, Tracer } from "opentracing";
-import { generate } from "shortid";
 
 import { IRedisInputStreamOptions, IRedisClient, redisClient } from ".";
 import { RedisOpenTracingTagKeys } from "./RedisClient";
@@ -19,14 +18,14 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
     private client: Lifecycle<IRedisClient>;
     private tracer: Tracer;
     private spanOperationName: string = "Redis Input Source Client Call";
-    private consumerId: string;
 
     constructor(private readonly config: IRedisInputStreamOptions) {
         this.tracer = DefaultComponentContext.tracer;
-        this.consumerId = generate();
     }
 
     public async *start(): AsyncIterableIterator<MessageRef> {
+        let initial = true;
+        let pendingMessages;
         while (!this.done) {
             const span = this.tracer.startSpan(this.spanOperationName);
 
@@ -37,12 +36,25 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                 this.config.consumerGroup
             );
 
-            const pendingMessages = await this.client.xPending(
-                span.context(),
-                this.config.readStream,
-                this.config.consumerGroup,
-                5
-            );
+            if (initial) {
+                pendingMessages = await this.client.xReadGroupObject(
+                    span.context(),
+                    MessageRef.name,
+                    this.config.readStream,
+                    this.config.consumerGroup,
+                    this.config.consumerId,
+                    "0"
+                );
+
+                initial = false;
+            } else {
+                pendingMessages = await this.client.xPending(
+                    span.context(),
+                    this.config.readStream,
+                    this.config.consumerGroup,
+                    this.config.idleTimeoutBatchSize
+                );
+            }
 
             const expiredIdleMessages = pendingMessages.filter(
                 ([, , idleTime]) => idleTime > this.config.idleTimeoutMs
@@ -51,12 +63,12 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
             if (expiredIdleMessages.length > 0) {
                 // drain expired idle messages
                 for (let [streamId] of expiredIdleMessages) {
-                    const [, msg] = await this.client.xClaim(
+                    const [, msg] = await this.client.xClaim<MessageRef>(
                         span.context(),
                         MessageRef.name,
                         this.config.readStream,
                         this.config.consumerGroup,
-                        this.consumerId,
+                        this.config.consumerId,
                         this.config.idleTimeoutMs,
                         streamId
                     );
@@ -68,6 +80,8 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                             this.config.consumerGroup,
                             streamId
                         );
+
+                        span.finish();
                     });
 
                     yield msg;
@@ -78,7 +92,7 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                     MessageRef.name,
                     this.config.readStream,
                     this.config.consumerGroup,
-                    this.consumerId
+                    this.config.consumerId
                 );
 
                 msg.once("released", async () => {
@@ -88,12 +102,12 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                         this.config.consumerGroup,
                         streamId
                     );
+
+                    span.finish();
                 });
 
                 yield msg;
             }
-
-            span.finish();
         }
     }
 
