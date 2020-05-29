@@ -21,7 +21,7 @@ import {
 import { Span, SpanContext, Tags, Tracer } from "opentracing";
 import { isString } from "util";
 import { IRedisOptions, IRedisClient, AutoGenerateRedisStreamID } from ".";
-import { RedisProxy, StreamResult } from "./RedisProxy";
+import { RedisProxy, RawStreamResult, RawPELResult } from "./RedisProxy";
 
 enum RedisMetrics {
     Get = "cookie_cutter.redis_client.get",
@@ -45,7 +45,23 @@ export enum RedisOpenTracingTagKeys {
     BucketName = "redis.bucket",
 }
 
-function extractStreamValue(results: StreamResult): string {
+export interface IPelResult {
+    streamId: string;
+    consumerId: string;
+    idleTime: number;
+    timesDelivered: number;
+}
+
+function formatXPendingResults(results: RawPELResult): IPelResult[] {
+    return results.map(([streamId, consumerId, idleTime, timesDelivered]) => ({
+        streamId,
+        consumerId,
+        idleTime,
+        timesDelivered,
+    }));
+}
+
+function extractStreamValue(results: RawStreamResult): string {
     // Since our initial implementation only pulls 1 value from 1 stream at a time
     // there should only be 1 item in results
 
@@ -61,7 +77,7 @@ function extractStreamValue(results: StreamResult): string {
     return data;
 }
 
-function extractStreamId(results: StreamResult): string {
+function extractStreamId(results: RawStreamResult): string {
     // Since our initial implementation on pulls 1 value from 1 stream at a time
     // there should only 1 item in results
 
@@ -446,12 +462,12 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
         streamName: string,
         consumerGroup: string,
         count = 5
-    ): Promise<[[string, string, number, number]]> {
+    ): Promise<IPelResult[]> {
         const db = this.config.db;
         const span = this.tracer.startSpan("Redis Client xPending Call", { childOf: context });
         this.spanLogAndSetTags(span, this.xPending.name, this.config.db, undefined, streamName);
         try {
-            const response = await this.client.xpending([
+            const results = await this.client.xpending([
                 streamName,
                 consumerGroup,
                 "-",
@@ -464,7 +480,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
                 consumerGroup,
                 result: RedisMetricResults.Success,
             });
-            return response;
+            return formatXPendingResults(results);
         } catch (err) {
             failSpan(span, err);
             this.metrics.increment(RedisMetrics.XPending, {

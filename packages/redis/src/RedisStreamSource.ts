@@ -59,17 +59,17 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                 }
 
                 const expiredIdleMessages = pendingMessages.filter(
-                    ([, , idleTime]) => idleTime > this.config.idleTimeoutMs
+                    ({ idleTime }) => idleTime > this.config.idleTimeoutMs
                 );
 
                 if (expiredIdleMessages.length > 0) {
                     // drain expired idle messages
-                    for (let [
+                    for (let {
                         streamId,
                         consumerId,
                         idleTime,
                         timesDelivered,
-                    ] of expiredIdleMessages) {
+                    } of expiredIdleMessages) {
                         const [, msg] = await this.client.xClaim<MessageRef>(
                             span.context(),
                             MessageRef.name,

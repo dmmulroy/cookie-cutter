@@ -32,16 +32,18 @@ export enum RedisEvents {
 }
 
 // [[streamName, [[streamId, [key, value, key, value ...]]]]]
-export type StreamResult = [[string, [[string, string[]]]]];
+export type RawStreamResult = [[string, [[string, string[]]]]];
+
+export type RawPELResult = [[string, string, number, number]];
 
 interface IRedisCommandPatches {
     xadd: (key: string, id: string, ...args: (string | Buffer)[] | Callback<string>[]) => boolean;
-    xread: (args: string[], cb: Callback<StreamResult>) => boolean;
-    xreadgroup: (args: string[], cb: Callback<StreamResult>) => boolean;
+    xread: (args: string[], cb: Callback<RawStreamResult>) => boolean;
+    xreadgroup: (args: string[], cb: Callback<RawStreamResult>) => boolean;
     xgroup: (args: string[], cb: Callback<"OK">) => boolean;
     xack: (args: string[], cb: Callback<number>) => boolean;
-    xpending: (args: string[], cb: Callback<[[string, string, number, number]]>) => boolean;
-    xclaim: (args: string[], cb: Callback<StreamResult>) => boolean;
+    xpending: (args: string[], cb: Callback<RawPELResult>) => boolean;
+    xclaim: (args: string[], cb: Callback<RawStreamResult>) => boolean;
     set: (key: string, value: string | Buffer, cb: Callback<"OK">) => boolean;
 }
 
@@ -60,12 +62,12 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
         id: string,
         ...keyValues: (string | Buffer)[]
     ) => Promise<string>;
-    private asyncXRead: (args: string[]) => Promise<StreamResult>;
-    private asyncXReadGroup: (args: string[]) => Promise<StreamResult>;
+    private asyncXRead: (args: string[]) => Promise<RawStreamResult>;
+    private asyncXReadGroup: (args: string[]) => Promise<RawStreamResult>;
     private asyncXGroup: (args: string[]) => Promise<"OK">;
     private asyncXAck: (args: string[]) => Promise<number>;
-    private asyncXPending: (args: string[]) => Promise<[[string, string, number, number]]>;
-    private asyncXClaim: (args: string[]) => Promise<StreamResult>;
+    private asyncXPending: (args: string[]) => Promise<RawPELResult>;
+    private asyncXClaim: (args: string[]) => Promise<RawStreamResult>;
 
     constructor(host: string, port: number, db: number) {
         this.logger = DefaultComponentContext.logger;
@@ -131,7 +133,7 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
         return this.asyncXAdd(streamName, id, ...args);
     }
 
-    public async xread(args: string[]): Promise<StreamResult> {
+    public async xread(args: string[]): Promise<RawStreamResult> {
         return this.asyncXRead(args);
     }
 
@@ -147,15 +149,15 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
         return this.asyncXAck([streamName, consumerGroup, streamId]);
     }
 
-    public async xreadgroup(args: string[]): Promise<StreamResult> {
+    public async xreadgroup(args: string[]): Promise<RawStreamResult> {
         return this.asyncXReadGroup(args);
     }
 
-    public async xpending(args: string[]): Promise<[[string, string, number, number]]> {
+    public async xpending(args: string[]): Promise<RawPELResult> {
         return this.asyncXPending(args);
     }
 
-    public async xclaim(args: string[]): Promise<StreamResult> {
+    public async xclaim(args: string[]): Promise<RawStreamResult> {
         return this.asyncXClaim(args);
     }
 }

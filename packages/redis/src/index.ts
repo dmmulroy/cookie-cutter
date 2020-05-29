@@ -13,13 +13,12 @@ import {
     IOutputSink,
     IPublishedMessage,
     IInputSource,
-    generateUniqueId,
 } from "@walmartlabs/cookie-cutter-core";
 import { SpanContext } from "opentracing";
 import { generate } from "shortid";
 
 import { RedisOptions } from "./config";
-import { RedisClient } from "./RedisClient";
+import { RedisClient, IPelResult } from "./RedisClient";
 import { RedisStreamSink } from "./RedisStreamSink";
 import { RedisStreamSource } from "./RedisStreamSource";
 
@@ -103,7 +102,7 @@ export interface IRedisClient {
         streamName: string,
         consumerGroup: string,
         count?: number
-    ): Promise<[[string, string, number, number]]>; // [[streamId, consumerName, idleTime, claims]];
+    ): Promise<IPelResult[]>;
     xClaim<T>(
         context: SpanContext,
         type: string | IClassType<T>,
