@@ -242,7 +242,14 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
         const buf = Buffer.from(encodedBody);
         const storableValue = this.config.base64Encode ? buf.toString("base64") : buf;
         try {
-            const insertedId = await this.client.xadd(streamName, id, key, storableValue);
+            const insertedId = await this.client.xadd(
+                streamName,
+                id,
+                key,
+                storableValue,
+                "type",
+                typeName
+            );
             this.metrics!.increment(RedisMetrics.XAdd, {
                 type,
                 db,
