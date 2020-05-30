@@ -11,7 +11,7 @@ import {
 } from "@walmartlabs/cookie-cutter-core";
 import { Span, Tags, Tracer } from "opentracing";
 
-import { IRedisInputStreamOptions, IRedisClient, redisClient } from ".";
+import { IRedisInputStreamOptions, IRedisClient, redisClient, IRedisMessage } from ".";
 import { RedisOpenTracingTagKeys } from "./RedisClient";
 
 export class RedisStreamSource implements IInputSource, IRequireInitialization, IDisposable {
@@ -127,48 +127,22 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
     }
 
     public async *startV2(): AsyncIterableIterator<MessageRef> {
-        const span = this.tracer.startSpan(this.spanOperationName);
+        let initial = false;
+        const messages: IRedisMessage[] = [];
 
-        this.spanLogAndSetTags(
-            span,
-            this.config.db,
-            this.config.readStream,
-            this.config.consumerGroup
-        );
-
-        const pendingMessages = await this.client.xReadGroup(
-            span.context(),
-            this.config.readStream,
-            this.config.consumerGroup,
-            this.config.consumerId,
-            this.config.idleTimeoutBatchSize,
-            "0"
-        );
-
-        for (const message of pendingMessages) {
-            const messageRef = new MessageRef(
-                {
-                    streamName: this.config.readStream,
-                    consumerGroup: this.config.consumerGroup,
-                    consumerId: this.config.consumerId,
-                },
-                message,
-                span.context()
-            );
-
-            messageRef.once("released", async () => {
-                await this.client.xAck(
-                    span.context(),
-                    this.config.readStream,
-                    this.config.consumerGroup,
-                    message.streamId
-                );
-
-                span.finish();
-            });
-
-            yield messageRef;
+        if (initial) {
+            // pendingMessagesForConsumer = await this.getPendingMessagesForConsumer()
+            // messages.push(pendingMessagesForConsumer)
+            // initial = false
         }
+
+        // pendingMessages = await this.getPendingMessagesForConsumerGroup()
+        // messages.push(pendingMessages)
+
+        // newMessagesToProcess = await this.getMessages()
+        // messages.push(newMessagesToProcess)
+
+        // loop over all messages, create spans, ack
     }
 
     stop(): Promise<void> {

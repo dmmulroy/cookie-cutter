@@ -608,7 +608,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
         consumerName: string,
         minIdleTime: number,
         streamIds: string[]
-    ): Promise<IMessage[]> {
+    ): Promise<IRedisMessage[]> {
         const db = this.config.db;
         const span = this.tracer.startSpan("Redis Client xClaim Call", { childOf: context });
 
@@ -626,14 +626,12 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
 
             const results = extractStreamValues(response);
 
-            const messages: IMessage[] = results.map(({ data, type }) => {
+            const messages: IRedisMessage[] = results.map(({ streamId, data, type }) => {
                 const buf = this.config.base64Encode
                     ? Buffer.from(data, "base64")
                     : Buffer.from(data);
 
-                const msg = this.encoder.decode(new Uint8Array(buf), type);
-
-                return msg;
+                return { streamId, ...this.encoder.decode(new Uint8Array(buf), type) };
             });
 
             this.metrics.increment(RedisMetrics.XClaim, {

@@ -126,7 +126,7 @@ export interface IRedisClient {
         consumerName: string,
         minIdleTime: number,
         streamIds: string[]
-    ): Promise<IMessage[]>;
+    ): Promise<IRedisMessage[]>;
 }
 
 export function redisClient(configuration: IRedisOptions): IRedisClient {
