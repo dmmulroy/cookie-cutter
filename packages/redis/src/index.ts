@@ -13,6 +13,7 @@ import {
     IOutputSink,
     IPublishedMessage,
     IInputSource,
+    IMessage,
 } from "@walmartlabs/cookie-cutter-core";
 import { SpanContext } from "opentracing";
 import { generate } from "shortid";
@@ -84,6 +85,14 @@ export interface IRedisClient {
         consumerName: string,
         id?: string
     ): Promise<[string, T] | undefined>; // [streamId, T]
+    xReadGroup(
+        context: SpanContext,
+        streamName: string,
+        consumerGroup: string,
+        consumerName: string,
+        count: number,
+        id?: string
+    ): Promise<IMessage[]>;
     xGroup(
         context: SpanContext,
         streamName: string,

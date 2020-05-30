@@ -61,6 +61,21 @@ function formatXPendingResults(results: RawPELResult): IPelResult[] {
     }));
 }
 
+function extractStreamValues(results: RawStreamResult): { data: string; type: string }[] {
+    // Since our initial implementation only pulls 1 value from 1 stream at a time
+    // there should only be 1 item in results
+
+    return results.map(([[, streamValue]]) => {
+        // [streamId, keyValues]
+        const [, keyValues] = streamValue;
+
+        // [RedisMetadata.OutputSinkStreamKey, serializedProto, type, typeName]
+        const [, data, , type] = keyValues;
+
+        return { data, type };
+    });
+}
+
 function extractStreamValue(results: RawStreamResult): string {
     // Since our initial implementation only pulls 1 value from 1 stream at a time
     // there should only be 1 item in results
@@ -459,6 +474,73 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
                 error: e,
             });
             throw e;
+        } finally {
+            span.finish();
+        }
+    }
+
+    public async xReadGroupObjectV2(
+        context: SpanContext,
+        streamName: string,
+        consumerGroup: string,
+        consumerName: string,
+        count: number,
+        id: string = ">"
+    ): Promise<IMessage[]> {
+        const db = this.config.db;
+        const span = this.tracer.startSpan("Redis Client xReadGroupObject Call", {
+            childOf: context,
+        });
+
+        this.spanLogAndSetTags(span, this.xReadGroupObject.name, this.config.db, id, streamName);
+
+        try {
+            const response = await this.client.xreadgroup([
+                "group",
+                consumerGroup,
+                consumerName,
+                "count",
+                String(count),
+                "block",
+                "0",
+                "streams",
+                streamName,
+                id,
+            ]);
+
+            const results = extractStreamValues(response);
+
+            const messages: IMessage[] = results.map(({ data, type }) => {
+                const buf = this.config.base64Encode
+                    ? Buffer.from(data, "base64")
+                    : Buffer.from(data);
+
+                const msg = this.encoder.decode(new Uint8Array(buf), type);
+
+                return msg;
+            });
+
+            this.metrics.increment(RedisMetrics.XReadGroup, {
+                db,
+                streamName,
+                consumerGroup,
+                consumerName,
+                result: RedisMetricResults.Success,
+            });
+
+            return messages;
+        } catch (error) {
+            failSpan(span, error);
+
+            this.metrics.increment(RedisMetrics.XReadGroup, {
+                db,
+                streamName,
+                consumerGroup,
+                consumerName,
+                result: RedisMetricResults.Error,
+                error,
+            });
+            throw error;
         } finally {
             span.finish();
         }
