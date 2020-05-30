@@ -71,12 +71,6 @@ export interface IRedisClient {
         body: T,
         id?: string
     ): Promise<string>;
-    xReadObject<T>(
-        context: SpanContext,
-        type: string | IClassType<T>,
-        streamName: string,
-        id?: string
-    ): Promise<[string, T] | undefined>; // [streamId, T]
     xReadGroupObject<T>(
         context: SpanContext,
         type: string | IClassType<T>,
@@ -112,7 +106,7 @@ export interface IRedisClient {
         consumerGroup: string,
         count?: number
     ): Promise<IPelResult[]>;
-    xClaim<T>(
+    xClaimObject<T>(
         context: SpanContext,
         type: string | IClassType<T>,
         streamName: string,
@@ -121,6 +115,14 @@ export interface IRedisClient {
         minIdleTime: number,
         streamId: string
     ): Promise<[string, T] | undefined>; // [streamId, T];
+    xClaim(
+        context: SpanContext,
+        streamName: string,
+        consumerGroup: string,
+        consumerName: string,
+        minIdleTime: number,
+        streamIds: string[]
+    ): Promise<IMessage[]>;
 }
 
 export function redisClient(configuration: IRedisOptions): IRedisClient {

@@ -70,7 +70,7 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                         idleTime,
                         timesDelivered,
                     } of expiredIdleMessages) {
-                        const [, msg] = await this.client.xClaim<MessageRef>(
+                        const [, msg] = await this.client.xClaimObject<MessageRef>(
                             span.context(),
                             MessageRef.name,
                             this.config.readStream,

@@ -38,7 +38,6 @@ export type RawPELResult = [[string, string, number, number]];
 
 interface IRedisCommandPatches {
     xadd: (key: string, id: string, ...args: (string | Buffer)[] | Callback<string>[]) => boolean;
-    xread: (args: string[], cb: Callback<RawStreamResult>) => boolean;
     xreadgroup: (args: string[], cb: Callback<RawStreamResult>) => boolean;
     xgroup: (args: string[], cb: Callback<"OK">) => boolean;
     xack: (args: string[], cb: Callback<number>) => boolean;
@@ -62,7 +61,6 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
         id: string,
         ...keyValues: (string | Buffer)[]
     ) => Promise<string>;
-    private asyncXRead: (args: string[]) => Promise<RawStreamResult>;
     private asyncXReadGroup: (args: string[]) => Promise<RawStreamResult>;
     private asyncXGroup: (args: string[]) => Promise<"OK">;
     private asyncXAck: (args: string[]) => Promise<number>;
@@ -101,7 +99,6 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
         this.asyncGet = promisify(this.client.get).bind(this.client);
         this.asyncSet = promisify(this.client.set).bind(this.client);
         this.asyncXAdd = promisify(this.client.xadd).bind(this.client);
-        this.asyncXRead = promisify(this.client.xread).bind(this.client);
         this.asyncXReadGroup = promisify(this.client.xreadgroup).bind(this.client);
         this.asyncXGroup = promisify(this.client.xgroup).bind(this.client);
         this.asyncXAck = promisify(this.client.xack).bind(this.client);
@@ -131,10 +128,6 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
         ...args: (string | Buffer)[]
     ): Promise<string> {
         return this.asyncXAdd(streamName, id, ...args);
-    }
-
-    public async xread(args: string[]): Promise<RawStreamResult> {
-        return this.asyncXRead(args);
     }
 
     public async xgroup(args: string[]): Promise<"OK"> {
