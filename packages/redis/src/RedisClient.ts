@@ -20,7 +20,7 @@ import {
 } from "@walmartlabs/cookie-cutter-core";
 import { Span, SpanContext, Tags, Tracer } from "opentracing";
 import { isString } from "util";
-import { IRedisOptions, IRedisClient, AutoGenerateRedisStreamID } from ".";
+import { IRedisOptions, IRedisClient, AutoGenerateRedisStreamID, IRedisMessage } from ".";
 import { RedisProxy, RawStreamResult, RawPELResult } from "./RedisProxy";
 
 enum RedisMetrics {
@@ -61,18 +61,20 @@ function formatXPendingResults(results: RawPELResult): IPelResult[] {
     }));
 }
 
-function extractStreamValues(results: RawStreamResult): { data: string; type: string }[] {
+function extractStreamValues(
+    results: RawStreamResult
+): { streamId: string; data: string; type: string }[] {
     // Since our initial implementation only pulls 1 value from 1 stream at a time
     // there should only be 1 item in results
 
     return results.map(([[, streamValue]]) => {
         // [streamId, keyValues]
-        const [, keyValues] = streamValue;
+        const [streamId, keyValues] = streamValue;
 
         // [RedisMetadata.OutputSinkStreamKey, serializedProto, type, typeName]
         const [, data, , type] = keyValues;
 
-        return { data, type };
+        return { streamId, data, type };
     });
 }
 
@@ -444,7 +446,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
         consumerName: string,
         count: number,
         id: string = ">"
-    ): Promise<IMessage[]> {
+    ): Promise<IRedisMessage[]> {
         const db = this.config.db;
         const span = this.tracer.startSpan("Redis Client xReadGroupObject Call", {
             childOf: context,
@@ -468,14 +470,12 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
 
             const results = extractStreamValues(response);
 
-            const messages: IMessage[] = results.map(({ data, type }) => {
+            const messages: IRedisMessage[] = results.map(({ streamId, data, type }) => {
                 const buf = this.config.base64Encode
                     ? Buffer.from(data, "base64")
                     : Buffer.from(data);
 
-                const msg = this.encoder.decode(new Uint8Array(buf), type);
-
-                return msg;
+                return { streamId, ...this.encoder.decode(new Uint8Array(buf), type) };
             });
 
             this.metrics.increment(RedisMetrics.XReadGroup, {

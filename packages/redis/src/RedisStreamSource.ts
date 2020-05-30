@@ -126,7 +126,53 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
         }
     }
 
+    public async *startV2(): AsyncIterableIterator<MessageRef> {
+        const span = this.tracer.startSpan(this.spanOperationName);
+
+        this.spanLogAndSetTags(
+            span,
+            this.config.db,
+            this.config.readStream,
+            this.config.consumerGroup
+        );
+
+        const pendingMessages = await this.client.xReadGroup(
+            span.context(),
+            this.config.readStream,
+            this.config.consumerGroup,
+            this.config.consumerId,
+            this.config.idleTimeoutBatchSize,
+            "0"
+        );
+
+        for (const message of pendingMessages) {
+            const messageRef = new MessageRef(
+                {
+                    streamName: this.config.readStream,
+                    consumerGroup: this.config.consumerGroup,
+                    consumerId: this.config.consumerId,
+                },
+                message,
+                span.context()
+            );
+
+            messageRef.once("released", async () => {
+                await this.client.xAck(
+                    span.context(),
+                    this.config.readStream,
+                    this.config.consumerGroup,
+                    message.streamId
+                );
+
+                span.finish();
+            });
+
+            yield messageRef;
+        }
+    }
+
     stop(): Promise<void> {
+        this.done = true;
         return;
     }
 
