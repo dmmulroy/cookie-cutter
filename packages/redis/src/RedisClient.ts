@@ -382,8 +382,6 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
                 id,
             ]);
 
-            console.log("HERE YO: ", response);
-
             const results = extractStreamValues(response);
 
             const messages: IRedisMessage[] = results.map(({ streamId, data, type }) => {
