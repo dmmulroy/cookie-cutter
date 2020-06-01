@@ -58,15 +58,21 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                         span.context()
                     );
 
-                    messageRef.once("released", async () => {
-                        await this.client.xAck(
-                            span.context(),
-                            this.config.readStream,
-                            this.config.consumerGroup,
-                            message.streamId
-                        );
+                    messageRef.once("released", async (msg, error) => {
+                        if (!error) {
+                            await this.client.xAck(
+                                span.context(),
+                                this.config.readStream,
+                                this.config.consumerGroup,
+                                message.streamId
+                            );
 
-                        span.finish();
+                            span.finish();
+                        } else {
+                            failSpan(span, error);
+                            span.finish();
+                            throw error;
+                        }
                     });
 
                     yield messageRef;
