@@ -132,7 +132,7 @@ export function redisStreamSource(configuration: IRedisInputStreamOptions): IInp
         consumerId: generate(),
         consumerGroupStartId: "$",
         batchSize: 10,
-        blockTimeout: 1000,
+        blockTimeout: 100,
         idleTimeout: 30000,
     });
 
