@@ -99,10 +99,10 @@ export class RedisOptions implements IRedisOptions {
     }
 
     @config.field(config.converters.number)
-    public set idleTimeoutBatchSize(_: number) {
+    public set batchSize(_: number) {
         config.noop();
     }
-    public get idleTimeoutBatchSize(): number {
+    public get batchSize(): number {
         return config.noop();
     }
 

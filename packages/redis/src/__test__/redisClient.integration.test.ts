@@ -20,7 +20,7 @@ import {
     timeout,
 } from "@walmartlabs/cookie-cutter-core";
 import { SpanContext } from "opentracing";
-import { createClient } from "redis";
+import { createClient, Callback } from "redis";
 
 import {
     IRedisClient,
@@ -44,6 +44,10 @@ class TestClass {
     constructor(public contents: string) {}
 }
 
+interface redisClientTypePatch {
+    xread: (args: string[], cb: Callback<RawStreamResult>) => boolean;
+}
+
 describe("redis integration test", () => {
     const config: IRedisOutputStreamOptions & IRedisInputStreamOptions = {
         host: "localhost",
@@ -54,11 +58,11 @@ describe("redis integration test", () => {
         writeStream: "test-stream",
         readStream: "test-stream",
         consumerGroup: "test-consumer-group",
-        idleTimeoutBatchSize: 5,
+        batchSize: 5,
         idleTimeoutMs: 5000,
     };
     let ccClient: Lifecycle<IRedisClient>;
-    let client: RedisClientWithStreamOperations;
+    let client: RedisClientWithStreamOperations & redisClientTypePatch;
     let asyncXRead;
     let asyncFlushAll;
     let asyncQuit;
@@ -67,7 +71,8 @@ describe("redis integration test", () => {
         ccClient = makeLifecycle(redisClient(config));
         await ccClient.initialize(DefaultComponentContext);
 
-        client = createClient(config.port, config.host) as RedisClientWithStreamOperations;
+        client = createClient(config.port, config.host) as RedisClientWithStreamOperations &
+            redisClientTypePatch;
         asyncXRead = promisify(client.xread).bind(client);
         asyncFlushAll = promisify(client.flushall).bind(client);
         asyncQuit = promisify(client.quit).bind(client);

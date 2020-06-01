@@ -38,7 +38,7 @@ export type IRedisInputStreamOptions = IRedisOptions & {
     readonly consumerId?: string;
     readonly consumerGroupStartId?: string;
     readonly idleTimeoutMs: number;
-    readonly idleTimeoutBatchSize: number;
+    readonly batchSize: number;
 };
 
 export type IRedisOutputStreamOptions = IRedisOptions & {

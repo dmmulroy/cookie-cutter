@@ -163,7 +163,7 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                 span.context(),
                 this.config.readStream,
                 this.config.consumerGroup,
-                this.config.idleTimeoutBatchSize
+                this.config.batchSize
             );
 
             const pendingMessagesIds = pendingMessages.map(({ streamId }) => streamId);
@@ -201,7 +201,7 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                 this.config.readStream,
                 this.config.consumerGroup,
                 this.config.consumerId,
-                this.config.idleTimeoutBatchSize
+                this.config.batchSize
             );
 
             return messages;
