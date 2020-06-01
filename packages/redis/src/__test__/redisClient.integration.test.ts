@@ -17,10 +17,9 @@ import {
     IDispatchContext,
     ConsoleLogger,
     ErrorHandlingMode,
-    timeout,
 } from "@walmartlabs/cookie-cutter-core";
 import { SpanContext } from "opentracing";
-import { createClient, Callback } from "redis";
+import { Callback, RedisClient } from "redis";
 
 import {
     IRedisClient,
@@ -71,11 +70,11 @@ describe("redis integration test", () => {
     let asyncQuit;
 
     beforeAll(async () => {
+        jest.setTimeout(10000);
         ccClient = makeLifecycle(redisClient(config));
         await ccClient.initialize(DefaultComponentContext);
 
-        client = createClient(config.port, config.host) as RedisClientWithStreamOperations &
-            redisClientTypePatch;
+        client = new RedisClient(config) as RedisClientWithStreamOperations & redisClientTypePatch;
         asyncXRead = promisify(client.xread).bind(client);
         asyncXInfo = promisify(client.xinfo).bind(client);
         asyncFlushAll = promisify(client.flushall).bind(client);
@@ -88,6 +87,8 @@ describe("redis integration test", () => {
 
     afterAll(async () => {
         await Promise.all([ccClient.dispose(), asyncQuit()]);
+        // Restore timeout
+        jest.setTimeout(5000);
     });
 
     it("does not get a value for an non-existing key", async () => {
@@ -137,31 +138,28 @@ describe("redis integration test", () => {
             .done()
             .run(ErrorHandlingMode.LogAndContinue);
 
-        try {
-            await timeout(app, 2000);
-        } catch (error) {
-            app.cancel();
-        } finally {
-            const results = await asyncXRead(["streams", "test-stream", "0"]);
-            expect(results).not.toBeFalsy();
+        setTimeout(() => app.cancel(), 2000);
+        await app;
 
-            const storedValue = ((results: RawStreamResult): Uint8Array => {
-                // [streamName, [streamValue]]
-                const [, [streamValue]] = results[0];
+        const results = await asyncXRead(["streams", "test-stream", "0"]);
+        expect(results).not.toBeFalsy();
 
-                // [streamId, keyValues]
-                const [, keyValues] = streamValue;
+        const storedValue = ((results: RawStreamResult): Uint8Array => {
+            // [streamName, [streamValue]]
+            const [, [streamValue]] = results[0];
 
-                // [RedisMetadata.OutputSinkStreamKey, data]
-                const [, data] = keyValues;
+            // [streamId, keyValues]
+            const [, keyValues] = streamValue;
 
-                return new Uint8Array(Buffer.from(data, "base64"));
-            })(results);
+            // [RedisMetadata.OutputSinkStreamKey, data]
+            const [, data] = keyValues;
 
-            const msg = config.encoder.decode(storedValue, Bar.name);
+            return new Uint8Array(Buffer.from(data, "base64"));
+        })(results);
 
-            expect(msg.payload.text).toEqual(`output for ${inputMsg.text}`);
-        }
+        const msg = config.encoder.decode(storedValue, Bar.name);
+
+        expect(msg.payload.text).toEqual(`output for ${inputMsg.text}`);
     });
 
     it("succesfully creates a new consumer group", async () => {
@@ -173,13 +171,13 @@ describe("redis integration test", () => {
             .dispatch({})
             .run(ErrorHandlingMode.LogAndContinue);
 
-        try {
-            await timeout(app, 2000);
-        } catch (error) {
+        setTimeout(() => {
             app.cancel();
-        } finally {
-            const consumerGroups = await asyncXInfo(["groups", config.readStream]);
-            expect(consumerGroups.length).toEqual(1);
-        }
+        }, 2000);
+
+        await app;
+
+        const consumerGroups = await asyncXInfo(["groups", config.readStream]);
+        expect(consumerGroups.length).toEqual(1);
     });
 });
