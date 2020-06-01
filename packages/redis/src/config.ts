@@ -90,19 +90,19 @@ export class RedisOptions implements IRedisOptions {
         return config.noop();
     }
 
-    @config.field(config.converters.number)
-    public set blockTimeoutMs(_: number) {
+    @config.field(config.converters.timespan)
+    public set blockTimeout(_: number) {
         config.noop();
     }
-    public get blockTimeoutMs(): number {
+    public get blockTimeout(): number {
         return config.noop();
     }
 
-    @config.field(config.converters.number)
-    public set idleTimeoutMs(_: number) {
+    @config.field(config.converters.timespan)
+    public set idleTimeout(_: number) {
         config.noop();
     }
-    public get idleTimeoutMs(): number {
+    public get idleTimeout(): number {
         return config.noop();
     }
 

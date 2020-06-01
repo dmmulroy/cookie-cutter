@@ -59,7 +59,8 @@ describe("redis integration test", () => {
         readStream: "test-stream",
         consumerGroup: "test-consumer-group",
         batchSize: 5,
-        idleTimeoutMs: 5000,
+        idleTimeout: 5000,
+        blockTimeout: 5000,
     };
     let ccClient: Lifecycle<IRedisClient>;
     let client: RedisClientWithStreamOperations & redisClientTypePatch;
