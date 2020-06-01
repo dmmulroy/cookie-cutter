@@ -118,7 +118,9 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
     }
 
     public async dispose(): Promise<void> {
-        await this.client.dispose();
+        if (this.client) {
+            await this.client.dispose();
+        }
     }
 
     private async getPendingMessagesForConsumer(): Promise<IRedisMessage[]> {
