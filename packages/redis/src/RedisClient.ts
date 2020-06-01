@@ -64,9 +64,6 @@ function formatXPendingResults(results: RawPELResult): IPelResult[] {
 function extractStreamValues(
     results: RawStreamResult
 ): { streamId: string; data: string; type: string }[] {
-    // Since our initial implementation only pulls 1 value from 1 stream at a time
-    // there should only be 1 item in results
-
     return results.map(([[, streamValue]]) => {
         // [streamId, keyValues]
         const [streamId, keyValues] = streamValue;
