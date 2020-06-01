@@ -46,6 +46,7 @@ class TestClass {
 
 interface redisClientTypePatch {
     xread: (args: string[], cb: Callback<RawStreamResult>) => boolean;
+    xinfo: (args: string[], cb: Callback<[string | number[]]>) => boolean;
 }
 
 describe("redis integration test", () => {
@@ -65,6 +66,7 @@ describe("redis integration test", () => {
     let ccClient: Lifecycle<IRedisClient>;
     let client: RedisClientWithStreamOperations & redisClientTypePatch;
     let asyncXRead;
+    let asyncXInfo;
     let asyncFlushAll;
     let asyncQuit;
 
@@ -75,6 +77,7 @@ describe("redis integration test", () => {
         client = createClient(config.port, config.host) as RedisClientWithStreamOperations &
             redisClientTypePatch;
         asyncXRead = promisify(client.xread).bind(client);
+        asyncXInfo = promisify(client.xinfo).bind(client);
         asyncFlushAll = promisify(client.flushall).bind(client);
         asyncQuit = promisify(client.quit).bind(client);
     });
@@ -135,7 +138,7 @@ describe("redis integration test", () => {
             .run(ErrorHandlingMode.LogAndContinue);
 
         try {
-            await timeout(app, 5000);
+            await timeout(app, 2000);
         } catch (error) {
             app.cancel();
         } finally {
@@ -167,14 +170,16 @@ describe("redis integration test", () => {
             .input()
             .add(redisStreamSource(config))
             .done()
+            .dispatch({})
             .run(ErrorHandlingMode.LogAndContinue);
 
         try {
-            await timeout(app, 5000);
+            await timeout(app, 2000);
         } catch (error) {
-            await app.cancel();
+            app.cancel();
         } finally {
-            expect(true).toBeTruthy();
+            const consumerGroups = await asyncXInfo(["groups", config.readStream]);
+            expect(consumerGroups.length).toEqual(1);
         }
     });
 });

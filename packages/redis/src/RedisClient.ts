@@ -386,8 +386,6 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
             // if the client returns null, early exit w/ an empty array
             if (!response) return [];
 
-            console.log("XREADGROUP: ", response);
-
             const results = extractStreamValues(response);
 
             const messages: IRedisMessage[] = results.map(({ streamId, data, type }) => {
@@ -492,8 +490,6 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
 
             // if the client returns null, early exit w/ an empty array
             if (!response) return [];
-
-            console.log("XCLAIM: ", response);
 
             const results = extractStreamValues(response);
 
