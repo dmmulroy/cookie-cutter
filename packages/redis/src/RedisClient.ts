@@ -78,35 +78,6 @@ function extractStreamValues(
     });
 }
 
-function extractStreamValue(results: RawStreamResult): string {
-    // Since our initial implementation only pulls 1 value from 1 stream at a time
-    // there should only be 1 item in results
-
-    // [streamName, [streamValue]]
-    const [, [streamValue]] = results[0];
-
-    // [streamId, keyValues]
-    const [, keyValues] = streamValue;
-
-    // [RedisMetadata.OutputSinkStreamKey, data]
-    const [, data] = keyValues;
-
-    return data;
-}
-
-function extractStreamId(results: RawStreamResult): string {
-    // Since our initial implementation on pulls 1 value from 1 stream at a time
-    // there should only 1 item in results
-
-    // [streamName, [streamValue]]
-    const [, [streamValue]] = results[0];
-
-    // [streamId, keyValues]
-    const [streamId] = streamValue;
-
-    return streamId;
-}
-
 export class RedisClient implements IRedisClient, IRequireInitialization, IDisposable {
     private client: RedisProxy;
     private encoder: IMessageEncoder;
