@@ -172,7 +172,7 @@ describe("redis integration test", () => {
         try {
             await timeout(app, 5000);
         } catch (error) {
-            app.cancel();
+            await app.cancel();
         } finally {
             expect(true).toBeTruthy();
         }

@@ -102,7 +102,7 @@ export interface IRedisClient {
         context: SpanContext,
         streamName: string,
         consumerGroup: string,
-        count?: number
+        count: number
     ): Promise<IPelResult[]>;
     xClaim(
         context: SpanContext,
