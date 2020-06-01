@@ -37,9 +37,9 @@ export type IRedisInputStreamOptions = IRedisOptions & {
     readonly consumerGroup: string;
     readonly consumerId?: string;
     readonly consumerGroupStartId?: string;
-    readonly blockTimeout: number;
-    readonly idleTimeout: number;
-    readonly batchSize: number;
+    readonly blockTimeout?: number;
+    readonly idleTimeout?: number;
+    readonly batchSize?: number;
 };
 
 export type IRedisOutputStreamOptions = IRedisOptions & {
@@ -131,6 +131,9 @@ export function redisStreamSource(configuration: IRedisInputStreamOptions): IInp
         base64Encode: true,
         consumerId: generate(),
         consumerGroupStartId: "$",
+        batchSize: 10,
+        blockTimeout: 1000,
+        idleTimeout: 30000,
     });
 
     return new RedisStreamSource(configuration);
