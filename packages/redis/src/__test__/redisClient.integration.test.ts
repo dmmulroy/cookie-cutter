@@ -27,11 +27,11 @@ import {
     redisClient,
     IRedisOutputStreamOptions,
     IRedisInputStreamOptions,
+    redisStreamSource,
 } from "../index";
 import { RedisStreamSink } from "../RedisStreamSink";
 import { promisify } from "util";
 import { RedisClientWithStreamOperations, RawStreamResult } from "../RedisProxy";
-import { RedisStreamSource } from "../RedisStreamSource";
 
 class Foo {
     constructor(public text: string) {}
@@ -141,12 +141,7 @@ describe("redis integration test", () => {
             const results = await asyncXRead(["streams", "test-stream", "0"]);
             expect(results).not.toBeFalsy();
 
-            // This IIFE will be moved into a utility function in the PR for the Stream Source
-            // and refactored/used here in that PR.
             const storedValue = ((results: RawStreamResult): Uint8Array => {
-                // Since our initial implementation on pulls 1 value from 1 stream at a time
-                // there should only 1 item in results
-
                 // [streamName, [streamValue]]
                 const [, [streamValue]] = results[0];
 
@@ -169,8 +164,16 @@ describe("redis integration test", () => {
         const app = Application.create()
             .logger(new ConsoleLogger())
             .input()
-            .add(new RedisStreamSource(config))
+            .add(redisStreamSource(config))
             .done()
             .run(ErrorHandlingMode.LogAndContinue);
+
+        try {
+            await timeout(app, 5000);
+        } catch (error) {
+            app.cancel();
+        } finally {
+            expect(true).toBeTruthy();
+        }
     });
 });

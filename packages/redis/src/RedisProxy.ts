@@ -103,6 +103,7 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
         this.asyncXGroup = promisify(this.client.xgroup).bind(this.client);
         this.asyncXAck = promisify(this.client.xack).bind(this.client);
         this.asyncXPending = promisify(this.client.xpending).bind(this.client);
+        this.asyncXClaim = promisify(this.client.xclaim).bind(this.client);
         this.asyncQuit = promisify(this.client.quit).bind(this.client);
     }
 

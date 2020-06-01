@@ -166,6 +166,11 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                 this.config.batchSize
             );
 
+            // if there are no pending messages return early w/ an empty array
+            if (pendingMessages.length < 1) {
+                return [];
+            }
+
             const pendingMessagesIds = pendingMessages.map(({ streamId }) => streamId);
 
             const messages = await this.client.xClaim(

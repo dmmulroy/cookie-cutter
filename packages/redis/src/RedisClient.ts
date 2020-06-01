@@ -64,17 +64,24 @@ function formatXPendingResults(results: RawPELResult): IPelResult[] {
 function extractStreamValues(
     results: RawStreamResult
 ): { streamId: string; data: string; type: string }[] {
-    return results.map(([[, streamValue]]) => {
+    return results.reduce((acc, curr) => {
+        // streamName, streamValue
+        const [[, streamValue]] = curr;
+
         // [streamId, keyValues]
-        const [streamId, keyValues] = streamValue;
+        const [streamId, keyValues = []] = streamValue;
+
+        if (keyValues.length < 1) {
+            return acc;
+        }
 
         // [RedisMetadata.OutputSinkStreamKey, serializedProto, type, typeName]
         const [, data, , type] = keyValues;
 
-        return { streamId, data, type };
-    });
+        acc.push({ streamId, data, type });
+        return acc;
+    }, []);
 }
-
 export class RedisClient implements IRedisClient, IRequireInitialization, IDisposable {
     private client: RedisProxy;
     private encoder: IMessageEncoder;
@@ -375,6 +382,8 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
                 id,
             ]);
 
+            console.log("HERE YO: ", response);
+
             const results = extractStreamValues(response);
 
             const messages: IRedisMessage[] = results.map(({ streamId, data, type }) => {
@@ -459,6 +468,9 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
         minIdleTime: number,
         streamIds: string[]
     ): Promise<IRedisMessage[]> {
+        // if there are no pending messages return early w/ an empty array
+        if (streamIds.length < 1) return [];
+
         const db = this.config.db;
         const span = this.tracer.startSpan("Redis Client xClaim Call", { childOf: context });
 
