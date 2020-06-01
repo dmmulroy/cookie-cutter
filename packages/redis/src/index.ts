@@ -75,14 +75,6 @@ export interface IRedisClient {
         body: T,
         id?: string
     ): Promise<string>;
-    xReadGroupObject<T>(
-        context: SpanContext,
-        type: string | IClassType<T>,
-        streamName: string,
-        consumerGroup: string,
-        consumerName: string,
-        id?: string
-    ): Promise<[string, T] | undefined>; // [streamId, T]
     xReadGroup(
         context: SpanContext,
         streamName: string,
@@ -110,15 +102,6 @@ export interface IRedisClient {
         consumerGroup: string,
         count?: number
     ): Promise<IPelResult[]>;
-    xClaimObject<T>(
-        context: SpanContext,
-        type: string | IClassType<T>,
-        streamName: string,
-        consumerGroup: string,
-        consumerName: string,
-        minIdleTime: number,
-        streamId: string
-    ): Promise<[string, T] | undefined>; // [streamId, T];
     xClaim(
         context: SpanContext,
         streamName: string,

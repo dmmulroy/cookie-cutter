@@ -25,124 +25,60 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
     }
 
     public async *start(): AsyncIterableIterator<MessageRef> {
-        let initial = true;
-        let pendingMessages;
+        let messages: IRedisMessage[] = [];
+
+        // On initial start attempt to fetch any messages from this consumers PEL
+        const pendingMessagesForConsumer = await this.getPendingMessagesForConsumer();
+        messages.push(...pendingMessagesForConsumer);
+
         while (!this.done) {
-            const span = this.tracer.startSpan(this.spanOperationName);
+            // Attempt to reclaim any PEL messages that have exceeded this.config.idleTimoutMS
+            const pendingMessagesForConsumerGroup = await this.getPendingMessagesForConsumerGroup();
+            messages.push(...pendingMessagesForConsumerGroup);
 
-            this.spanLogAndSetTags(
-                span,
-                this.config.db,
-                this.config.readStream,
-                this.config.consumerGroup
-            );
+            // Get any new messages in the consumer group to process
+            const newMessages = await this.getNewMessages();
+            messages.push(...newMessages);
 
-            try {
-                if (initial) {
-                    pendingMessages = await this.client.xReadGroupObject<MessageRef>(
-                        span.context(),
-                        MessageRef.name,
-                        this.config.readStream,
-                        this.config.consumerGroup,
-                        this.config.consumerId,
-                        "0"
-                    );
+            // Process messages to MessageRefs and yield
+            for (const message of messages) {
+                const span = this.tracer.startSpan(this.spanOperationName);
 
-                    initial = false;
-                } else {
-                    pendingMessages = await this.client.xPending(
-                        span.context(),
-                        this.config.readStream,
-                        this.config.consumerGroup,
-                        this.config.idleTimeoutBatchSize
-                    );
-                }
-
-                const expiredIdleMessages = pendingMessages.filter(
-                    ({ idleTime }) => idleTime > this.config.idleTimeoutMs
+                this.spanLogAndSetTags(
+                    span,
+                    this.config.db,
+                    this.config.readStream,
+                    this.config.consumerGroup
                 );
 
-                if (expiredIdleMessages.length > 0) {
-                    // drain expired idle messages
-                    for (let {
-                        streamId,
-                        consumerId,
-                        idleTime,
-                        timesDelivered,
-                    } of expiredIdleMessages) {
-                        const [, msg] = await this.client.xClaimObject<MessageRef>(
-                            span.context(),
-                            MessageRef.name,
-                            this.config.readStream,
-                            this.config.consumerGroup,
-                            this.config.consumerId,
-                            this.config.idleTimeoutMs,
-                            streamId
-                        );
-
-                        msg.addMetadata({ streamId, consumerId, idleTime, timesDelivered });
-
-                        msg.once("released", async () => {
-                            await this.client.xAck(
-                                span.context(),
-                                this.config.readStream,
-                                this.config.consumerGroup,
-                                streamId
-                            );
-
-                            span.finish();
-                        });
-
-                        yield msg;
-                    }
-                } else {
-                    const [streamId, msg] = await this.client.xReadGroupObject<MessageRef>(
-                        span.context(),
-                        MessageRef.name,
-                        this.config.readStream,
-                        this.config.consumerGroup,
-                        this.config.consumerId
+                try {
+                    const messageRef = new MessageRef(
+                        { streamId: message.streamId },
+                        message,
+                        span.context()
                     );
 
-                    msg.addMetadata({ streamId });
-
-                    msg.once("released", async () => {
+                    messageRef.once("released", async () => {
                         await this.client.xAck(
                             span.context(),
                             this.config.readStream,
                             this.config.consumerGroup,
-                            streamId
+                            message.streamId
                         );
 
                         span.finish();
                     });
 
-                    yield msg;
+                    yield messageRef;
+                } catch (error) {
+                    failSpan(span, error);
+                    throw error;
                 }
-            } catch (error) {
-                failSpan(span, error);
-                throw error;
             }
+
+            // Clear messages for next iteration
+            messages = [];
         }
-    }
-
-    public async *startV2(): AsyncIterableIterator<MessageRef> {
-        let initial = false;
-        const messages: IRedisMessage[] = [];
-
-        if (initial) {
-            // pendingMessagesForConsumer = await this.getPendingMessagesForConsumer()
-            // messages.push(pendingMessagesForConsumer)
-            // initial = false
-        }
-
-        // pendingMessages = await this.getPendingMessagesForConsumerGroup()
-        // messages.push(pendingMessages)
-
-        // newMessagesToProcess = await this.getMessages()
-        // messages.push(newMessagesToProcess)
-
-        // loop over all messages, create spans, ack
     }
 
     stop(): Promise<void> {
@@ -185,6 +121,97 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
         await this.client.dispose();
     }
 
+    private async getPendingMessagesForConsumer(): Promise<IRedisMessage[]> {
+        const span = this.tracer.startSpan(this.spanOperationName);
+
+        this.spanLogAndSetTags(
+            span,
+            this.config.db,
+            this.config.readStream,
+            this.config.consumerGroup
+        );
+        try {
+            const messages = await this.client.xReadGroup(
+                span.context(),
+                this.config.readStream,
+                this.config.consumerGroup,
+                this.config.consumerId,
+                0, // this will retrieve all PEL messages for this consumer
+                "0"
+            );
+
+            return messages;
+        } catch (error) {
+            failSpan(span, error);
+            throw error;
+        } finally {
+            span.finish();
+        }
+    }
+
+    private async getPendingMessagesForConsumerGroup(): Promise<IRedisMessage[]> {
+        const span = this.tracer.startSpan(this.spanOperationName);
+
+        this.spanLogAndSetTags(
+            span,
+            this.config.db,
+            this.config.readStream,
+            this.config.consumerGroup
+        );
+        try {
+            const pendingMessages = await this.client.xPending(
+                span.context(),
+                this.config.readStream,
+                this.config.consumerGroup,
+                this.config.idleTimeoutBatchSize
+            );
+
+            const pendingMessagesIds = pendingMessages.map(({ streamId }) => streamId);
+
+            const messages = await this.client.xClaim(
+                span.context(),
+                this.config.readStream,
+                this.config.consumerGroup,
+                this.config.consumerId,
+                this.config.idleTimeoutMs,
+                pendingMessagesIds
+            );
+
+            return messages;
+        } catch (error) {
+            failSpan(span, error);
+            throw error;
+        } finally {
+            span.finish();
+        }
+    }
+
+    private async getNewMessages(): Promise<IRedisMessage[]> {
+        const span = this.tracer.startSpan(this.spanOperationName);
+
+        this.spanLogAndSetTags(
+            span,
+            this.config.db,
+            this.config.readStream,
+            this.config.consumerGroup
+        );
+        try {
+            const messages = await this.client.xReadGroup(
+                span.context(),
+                this.config.readStream,
+                this.config.consumerGroup,
+                this.config.consumerId,
+                this.config.idleTimeoutBatchSize
+            );
+
+            return messages;
+        } catch (error) {
+            failSpan(span, error);
+            throw error;
+        } finally {
+            span.finish();
+        }
+    }
     private spanLogAndSetTags(
         span: Span,
         bucket: number,
