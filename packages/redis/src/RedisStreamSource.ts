@@ -51,14 +51,14 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                     this.config.consumerGroup
                 );
 
-                try {
-                    const messageRef = new MessageRef(
-                        { streamId: message.streamId },
-                        message,
-                        span.context()
-                    );
+                const messageRef = new MessageRef(
+                    { streamId: message.streamId },
+                    message,
+                    span.context()
+                );
 
-                    messageRef.once("released", async (msg, error) => {
+                messageRef.once("released", async (_, error) => {
+                    try {
                         if (!error) {
                             await this.client.xAck(
                                 span.context(),
@@ -66,20 +66,17 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
                                 this.config.consumerGroup,
                                 message.streamId
                             );
-
-                            span.finish();
                         } else {
                             failSpan(span, error);
-                            span.finish();
-                            throw error;
                         }
-                    });
+                    } catch (e) {
+                        failSpan(span, e);
+                    } finally {
+                        span.finish();
+                    }
+                });
 
-                    yield messageRef;
-                } catch (error) {
-                    failSpan(span, error);
-                    throw error;
-                }
+                yield messageRef;
             }
 
             // Clear messages for next iteration
