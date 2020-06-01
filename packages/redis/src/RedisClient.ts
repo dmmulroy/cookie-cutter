@@ -359,6 +359,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
         consumerGroup: string,
         consumerName: string,
         count: number,
+        block: number,
         id: string = ">"
     ): Promise<IRedisMessage[]> {
         const db = this.config.db;
@@ -376,7 +377,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
                 "count",
                 String(count),
                 "block",
-                "0",
+                String(block),
                 "streams",
                 streamName,
                 id,

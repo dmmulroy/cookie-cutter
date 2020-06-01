@@ -37,6 +37,7 @@ export type IRedisInputStreamOptions = IRedisOptions & {
     readonly consumerGroup: string;
     readonly consumerId?: string;
     readonly consumerGroupStartId?: string;
+    readonly blockTimeoutMs: number;
     readonly idleTimeoutMs: number;
     readonly batchSize: number;
 };
@@ -81,6 +82,7 @@ export interface IRedisClient {
         consumerGroup: string,
         consumerName: string,
         count: number,
+        block: number,
         id?: string
     ): Promise<IRedisMessage[]>;
     xGroup(

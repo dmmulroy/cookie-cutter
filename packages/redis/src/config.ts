@@ -91,6 +91,14 @@ export class RedisOptions implements IRedisOptions {
     }
 
     @config.field(config.converters.number)
+    public set blockTimeoutMs(_: number) {
+        config.noop();
+    }
+    public get blockTimeoutMs(): number {
+        return config.noop();
+    }
+
+    @config.field(config.converters.number)
     public set idleTimeoutMs(_: number) {
         config.noop();
     }
