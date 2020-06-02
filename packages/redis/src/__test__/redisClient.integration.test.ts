@@ -13,11 +13,11 @@ import {
     makeLifecycle,
     ObjectNameMessageTypeMapper,
     Application,
-    StaticInputSource,
     IDispatchContext,
     ConsoleLogger,
     ErrorHandlingMode,
     NullOutputSink,
+    StaticInputSource,
 } from "@walmartlabs/cookie-cutter-core";
 import { SpanContext } from "opentracing";
 import { Callback, RedisClient } from "redis";
@@ -123,6 +123,8 @@ describe("redis integration test", () => {
         const id = await ccClient.xAddObject(span, TestClass.name, "test-stream", key, value);
 
         expect(id).not.toBeFalsy();
+
+        // const iterator = redisStreamSource(config).start();
     });
 
     it("successfully adds a value to a redis stream through the output sink", async () => {
@@ -253,7 +255,7 @@ describe("redis integration test", () => {
         expect(results.length).toBe(0);
     });
 
-    it("succesfully processes expired idle messages from the consumer group ", async () => {
+    it("succesfully processes expired idle messages from the config group ", async () => {
         const cfg = { ...config, idleTimeout: 0 };
 
         const xGroupResult = await ccClient.xGroup(
