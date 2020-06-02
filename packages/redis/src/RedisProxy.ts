@@ -32,17 +32,19 @@ export enum RedisEvents {
 }
 
 // [[streamName, [[streamId, [key, value, key, value ...]]]]]
-export type RawStreamResult = [[string, [[string, string[]]]]];
+export type RawReadGroupResult = [[string, [[string, string[]]]]];
+
+export type RawXClaimResult = [[string, string[]]];
 
 export type RawPELResult = [[string, string, number, number]];
 
 interface IRedisCommandPatches {
     xadd: (key: string, id: string, ...args: (string | Buffer)[] | Callback<string>[]) => boolean;
-    xreadgroup: (args: string[], cb: Callback<RawStreamResult>) => boolean;
+    xreadgroup: (args: string[], cb: Callback<RawReadGroupResult>) => boolean;
     xgroup: (args: string[], cb: Callback<"OK">) => boolean;
     xack: (args: string[], cb: Callback<number>) => boolean;
     xpending: (args: string[], cb: Callback<RawPELResult>) => boolean;
-    xclaim: (args: string[], cb: Callback<RawStreamResult>) => boolean;
+    xclaim: (args: string[], cb: Callback<RawXClaimResult>) => boolean;
     set: (key: string, value: string | Buffer, cb: Callback<"OK">) => boolean;
 }
 
@@ -61,11 +63,11 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
         id: string,
         ...keyValues: (string | Buffer)[]
     ) => Promise<string>;
-    private asyncXReadGroup: (args: string[]) => Promise<RawStreamResult>;
+    private asyncXReadGroup: (args: string[]) => Promise<RawReadGroupResult>;
     private asyncXGroup: (args: string[]) => Promise<"OK">;
     private asyncXAck: (args: string[]) => Promise<number>;
     private asyncXPending: (args: string[]) => Promise<RawPELResult>;
-    private asyncXClaim: (args: string[]) => Promise<RawStreamResult>;
+    private asyncXClaim: (args: string[]) => Promise<RawXClaimResult>;
 
     constructor(host: string, port: number, db: number) {
         this.logger = DefaultComponentContext.logger;
@@ -143,7 +145,7 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
         return this.asyncXAck([streamName, consumerGroup, streamId]);
     }
 
-    public async xreadgroup(args: string[]): Promise<RawStreamResult> {
+    public async xreadgroup(args: string[]): Promise<RawReadGroupResult> {
         return this.asyncXReadGroup(args);
     }
 
@@ -151,7 +153,7 @@ export class RedisProxy implements IRequireInitialization, IDisposable {
         return this.asyncXPending(args);
     }
 
-    public async xclaim(args: string[]): Promise<RawStreamResult> {
+    public async xclaim(args: string[]): Promise<RawXClaimResult> {
         return this.asyncXClaim(args);
     }
 }

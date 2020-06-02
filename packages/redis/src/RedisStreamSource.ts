@@ -11,8 +11,8 @@ import {
 } from "@walmartlabs/cookie-cutter-core";
 import { Span, Tags, Tracer } from "opentracing";
 
-import { IRedisInputStreamOptions, IRedisClient, redisClient, IRedisMessage } from ".";
-import { RedisOpenTracingTagKeys } from "./RedisClient";
+import { IRedisInputStreamOptions, IRedisClient, IRedisMessage } from ".";
+import { RedisOpenTracingTagKeys, RedisClient } from "./RedisClient";
 
 export class RedisStreamSource implements IInputSource, IRequireInitialization, IDisposable {
     private done: boolean = false;
@@ -92,7 +92,7 @@ export class RedisStreamSource implements IInputSource, IRequireInitialization, 
     public async initialize(context: IComponentContext): Promise<void> {
         this.tracer = context.tracer;
 
-        this.client = makeLifecycle(redisClient(this.config));
+        this.client = makeLifecycle(new RedisClient(this.config));
         await this.client.initialize(context);
 
         const span = this.tracer.startSpan(this.spanOperationName);

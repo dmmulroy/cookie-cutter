@@ -135,6 +135,5 @@ export function redisStreamSource(configuration: IRedisInputStreamOptions): IInp
         blockTimeout: 100,
         idleTimeout: 30000,
     });
-
     return new RedisStreamSource(configuration);
 }

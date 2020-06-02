@@ -21,7 +21,7 @@ import {
 import { Span, SpanContext, Tags, Tracer } from "opentracing";
 import { isString } from "util";
 import { IRedisOptions, IRedisClient, AutoGenerateRedisStreamID, IRedisMessage } from ".";
-import { RedisProxy, RawStreamResult, RawPELResult } from "./RedisProxy";
+import { RedisProxy, RawReadGroupResult, RawPELResult, RawXClaimResult } from "./RedisProxy";
 
 enum RedisMetrics {
     Get = "cookie_cutter.redis_client.get",
@@ -61,12 +61,12 @@ function formatXPendingResults(results: RawPELResult): IPelResult[] {
     }));
 }
 
-function extractStreamValues(
-    results: RawStreamResult
+function extractXReadGroupValues(
+    results: RawReadGroupResult
 ): { streamId: string; data: string; type: string }[] {
     return results.reduce((acc, curr) => {
         // streamName, streamValue
-        const [[, streamValue]] = curr;
+        const [, [streamValue = []]] = curr;
 
         // [streamId, keyValues]
         const [streamId, keyValues = []] = streamValue;
@@ -78,6 +78,18 @@ function extractStreamValues(
         // [RedisMetadata.OutputSinkStreamKey, serializedProto, type, typeName]
         const [, data, , type] = keyValues;
 
+        acc.push({ streamId, data, type });
+        return acc;
+    }, []);
+}
+
+function extractXClaimValues(
+    results: RawXClaimResult
+): { streamId: string; data: string; type: string }[] {
+    return results.reduce((acc, curr) => {
+        const [streamId, keyValues = []] = curr;
+
+        const [, data, , type] = keyValues;
         acc.push({ streamId, data, type });
         return acc;
     }, []);
@@ -386,7 +398,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
             // if the client returns null, early exit w/ an empty array
             if (!response) return [];
 
-            const results = extractStreamValues(response);
+            const results = extractXReadGroupValues(response);
 
             const messages: IRedisMessage[] = results.map(({ streamId, data, type }) => {
                 const buf = this.config.base64Encode
@@ -491,7 +503,7 @@ export class RedisClient implements IRedisClient, IRequireInitialization, IDispo
             // if the client returns null, early exit w/ an empty array
             if (!response) return [];
 
-            const results = extractStreamValues(response);
+            const results = extractXClaimValues(response);
 
             const messages: IRedisMessage[] = results.map(({ streamId, data, type }) => {
                 const buf = this.config.base64Encode
